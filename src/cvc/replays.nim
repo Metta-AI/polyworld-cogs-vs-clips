@@ -8,6 +8,8 @@ const
   ContentHash* = uint64(hashy(
     staticRead("common.nim") & staticRead("maps.nim") & staticRead("../../data/maps/fourscore.txt") & staticRead("sims.nim")
   ))
+  # The pre-optimization build produces identical authoritative tick hashes.
+  PreviousContentHash* = 1590253142'u64
   CheckpointPeriod* = 500
 
 type
@@ -56,7 +58,7 @@ proc validate*(tape: Replay) =
     tape.header.gameVersion != GameVersion:
       fail("unsupported CVC replay version")
   if tape.header.setup.maximumTicks != uint32(MaxTicks) or
-    tape.header.setup.contentHash != ContentHash:
+    tape.header.setup.contentHash notin [ContentHash, PreviousContentHash]:
       fail("replay rules do not match this client")
   if tape.hashes.len > int(MaxTicks) or
     tape.actions.len != tape.hashes.len:

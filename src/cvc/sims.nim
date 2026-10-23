@@ -2,6 +2,13 @@ import
   polyworld/[rngs, hashes],
   common, maps
 
+when defined(cvcSimTrace):
+  import profiles
+else:
+  template measure(fn: untyped): untyped =
+    ## Leaves simulation profiling disabled in normal builds.
+    fn
+
 export common
 
 proc root*(value: int64): int32 =
@@ -17,7 +24,23 @@ proc root*(value: int64): int32 =
       high = middle
   int32(low)
 
-proc territory*(world: World, tile: int32): Owner =
+const Distances = block:
+  var values: array[int(HubRadius * HubRadius), int32]
+  for i in 0 ..< values.len:
+    values[i] = root(int64(i) * 1024 * 1024)
+  values
+
+proc owner(strengths: array[Owner, int32]): Owner =
+  ## Selects the strongest faction, leaving tied influence neutral.
+  var best = 0'i32
+  for team in Teams:
+    if strengths[team] > best:
+      best = strengths[team]
+      result = team
+    elif strengths[team] == best:
+      result = Neutral
+
+proc territory*(world: World, tile: int32): Owner {.measure.} =
   ## Sums fixed-point radial influence, with neutral ownership on ties.
   var strengths: array[Owner, int32]
   for station in world.stations:
@@ -28,15 +51,34 @@ proc territory*(world: World, tile: int32): Owner =
       radius = if station.kind == Hub: HubRadius else: TerritoryRadius
       distance = station.tile.distance2(tile)
     if distance < radius * radius:
-      strengths[station.owner] += radius * 1024 -
-        root(int64(distance) * 1024 * 1024)
-  var best = 0'i32
-  for team in Teams:
-    if strengths[team] > best:
-      best = strengths[team]
-      result = team
-    elif strengths[team] == best:
-      result = Neutral
+      strengths[station.owner] += radius * 1024 - Distances[distance]
+  strengths.owner
+
+proc territories(world: World): array[CogCount, Owner] {.measure.} =
+  ## Applies each active station's influence to all Cogs in one pass.
+  var
+    strengths: array[CogCount, array[Owner, int32]]
+    xs, ys: array[CogCount, int32]
+  for i, cog in world.cogs:
+    xs[i] = cog.tile.x
+    ys[i] = cog.tile.y
+  for station in world.stations:
+    if station.owner == Neutral or
+      station.kind notin {Hub, Junction, Ship}:
+        continue
+    let
+      radius = if station.kind == Hub: HubRadius else: TerritoryRadius
+      sx = station.tile.x
+      sy = station.tile.y
+    for i in 0 ..< CogCount:
+      let
+        dx = sx - xs[i]
+        dy = sy - ys[i]
+        distance = dx * dx + dy * dy
+      if distance < radius * radius:
+        strengths[i][station.owner] += radius * 1024 - Distances[distance]
+  for i in 0 ..< CogCount:
+    result[i] = strengths[i].owner
 
 proc linked*(world: World, tile: int32, owner: Owner): bool =
   ## Checks the capture reach of a team's current network.
@@ -47,7 +89,7 @@ proc linked*(world: World, tile: int32, owner: Owner): bool =
       if station.tile.distance2(tile) <= radius * radius:
         return true
 
-proc reconnect*(world: var World) =
+proc reconnect*(world: var World) {.measure.} =
   ## Neutralizes junctions disconnected from their faction's root.
   var reached: array[MaxStations, bool]
   for i, station in world.stations:
@@ -158,7 +200,7 @@ proc useStation*(world: var World, slot, index: int) =
   of Ship:
     discard
 
-proc act(world: var World, slot: int, action: Action) =
+proc act(world: var World, slot: int, action: Action) {.measure.} =
   ## Resolves movement or interaction for one Cog in lockstep order.
   world.cogs[slot].feedback = Idle
   if action == Rest:
@@ -183,7 +225,7 @@ proc act(world: var World, slot: int, action: Action) =
     world.cogs[slot].tile = tile
     world.cogs[slot].feedback = Moved
 
-proc tick*(world: var World, actions: Actions) =
+proc tick*(world: var World, actions: Actions) {.measure.} =
   ## Applies actions, team territory effects, and integer scoring.
   if world.tick >= MaxTicks:
     return
@@ -194,12 +236,14 @@ proc tick*(world: var World, actions: Actions) =
     swap(order[i], order[world.rng.below(int32(i + 1))])
   for slot in order:
     world.act(slot, actions[slot])
-  let solar = if world.tick mod DayLength < DayLength div 2: 3 else: 1
+  let
+    solar = if world.tick mod DayLength < DayLength div 2: 3 else: 1
+    owners = world.territories()
   for i in 0 ..< CogCount:
     var cog = addr world.cogs[i]
     cog.hp = max(0, cog.hp - 1)
     cog.energy = min(cog.role.maxEnergy, cog.energy + int32(solar))
-    let owner = world.territory(cog.tile)
+    let owner = owners[i]
     if owner == cog.team:
       cog.hp = min(cog.role.maxHp, cog.hp + 100)
       cog.energy = min(cog.role.maxEnergy, cog.energy + 100)

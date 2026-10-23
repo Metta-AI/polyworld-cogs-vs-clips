@@ -1,5 +1,9 @@
 # FourScore engine benchmark
 
+Latest simulation optimization results are in
+[simulation-performance.md](simulation-performance.md). The measurements below
+record the earlier comparison before that optimization.
+
 Measured locally on macOS arm64 on 2026-10-23. Each run processes 10,000
 ticks with 32 Cogs on the 120 by 120 FourScore map, seed 1. The three
 implementations receive the same prerecorded action stream. Times exclude
