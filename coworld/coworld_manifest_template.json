@@ -1,0 +1,438 @@
+{
+  "tags": [
+    "strategy",
+    "basic",
+    "polyworld"
+  ],
+  "game": {
+    "name": "Cogs vs Clips PW",
+    "description": "Four teams of eight Cogs compete for territory in a fixed 10,000-tick FourScore match. Deterministic Polyworld simulation with original 2D art.",
+    "owner": "treeform",
+    "player_runtime": "game-hosted",
+    "runnable": {
+      "type": "game",
+      "image": "{{GAME_IMAGE}}",
+      "source_url": "https://github.com/Metta-AI/polyworld-cogs-vs-clips"
+    },
+    "config_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tokens",
+        "players",
+        "seed",
+        "max_ticks"
+      ],
+      "properties": {
+        "tokens": {
+          "type": "array",
+          "minItems": 32,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "players": {
+          "type": "array",
+          "minItems": 32,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "max_ticks": {
+          "type": "integer",
+          "const": 10000
+        }
+      }
+    },
+    "results_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scores",
+        "ticks",
+        "seed",
+        "outcome"
+      ],
+      "properties": {
+        "scores": {
+          "type": "array",
+          "minItems": 32,
+          "maxItems": 32,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "ticks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "outcome": {
+          "type": "string"
+        }
+      }
+    },
+    "replay_viewer": {
+      "bundle": "replay-viewer",
+      "replay_compression": "gzip"
+    },
+    "protocols": {
+      "player": {
+        "type": "text",
+        "value": "Upload raw BASIC source. Exactly 32 seats, ordered in four blocks of eight: red, blue, green, yellow. Each seat controls one Cog and receives its team territory score. See the bundled policy guide for the fixed observation and action API."
+      },
+      "global": {
+        "type": "text",
+        "value": "GET /client/global returns a static status page. /global sends one JSON status message after WebSocket upgrade and echoes Ping frames with Pong. No gameplay traffic uses WebSockets. Other legacy endpoints return explicit stubs."
+      }
+    },
+    "docs": {
+      "readme": {
+        "type": "text",
+        "value": "# Cogs vs Clips PW\n\nFour teams of eight Cogs compete for territory in a fixed 10,000-tick FourScore match. Deterministic Polyworld simulation with original 2D art.\n\nUpload raw BASIC source. Exactly 32 seats, ordered in four blocks of eight: red, blue, green, yellow. Each seat controls one Cog and receives its team territory score. See the bundled policy guide for the fixed observation and action API.\n\n# BASIC policy interface\n\nEach Cog has an independent bounded runtime. Its program restarts each tick,\nreads the same pre-tick world as the other seats, and queues one action. The\nlast `act` call wins. Failure stops that policy and leaves its seat resting.\nThe console reports the error. Replays contain actions, not policy source.\n\n| Function | Meaning |\n| --- | --- |\n| `self(field)` | 0 seat, 1 tick, 2 x, 3 y, 4 role, 5 HP, 6 energy, 7 hearts, 8 team |\n| `bank(element)` | Own team bank amount |\n| `cargo(element)` | Own carried amount |\n| `tile(x,y)` | -1 unseen, 0 floor, 1 wall, 2 hub, 3 junction, 4 ship, 5 extractor, 6 gear |\n| `owner(x,y)` | -1 unseen, 0 neutral, 1 red, 2 blue, 3 green, 4 yellow |\n| `station(x,y,field)` | -1 absent or unseen; fields 0 kind, 1 owner, 2 element, 3 stock, 4 role |\n| `cog(seat,field)` | -1 unseen or invalid; fields 0 x, 1 y, 2 role, 3 HP, 4 team |\n| `act(action)` | 0 rest, 1 north, 2 east, 3 south, 4 west |\n| `baseline()` | Action from a local-vision baseline with per-seat memory |\n\nElements are 0 carbon, 1 oxygen, 2 germanium, 3 silicon. Roles are 0 ungeared,\n1 miner, 2 aligner, 3 scrambler, 4 scout. Station kinds are 0 hub, 1 junction,\n2 ship, 3 extractor, 4 gear. Coordinates are zero-based.\n\nSpatial observation is a 13 by 13 square centered on the acting Cog. Shared\ninventory is shared within each team. The baseline remembers observations and knows the fixed\ncompound layout. It does not read unseen station state or distant Cog positions.\nIts memory is bounded by map size. `baseline()` is charged for bounded pathfinding\nwork, and each decision has instruction and work limits.\n\nA minimal policy:\n\n```basic\nact(baseline())\n```\n\nA policy that always rests:\n\n```basic\nact(0)\n```\n\nThe baseline handles visible Cogs separately from terrain pathfinding. It keeps\nfollowing a bounded local detour until it rejoins the main route, checking each\nstep for new occupants. A changed goal, failed move, or blocked detour discards\nthe old plan. If no local route is available, it waits and retries. Moving Cogs\ndo not invalidate the terrain JPS+ cache. Custom policies issuing `act` directly\nmust handle other Cogs themselves; the simulation does not reroute actions.\n\nThe baseline yields with a 50% coin flip when another Cog blocks its terrain\nroute, or when it proposes a movement destination from either of its previous\ntwo decisions. Each seat uses a deterministic coin keyed by match seed, tick,\nand seat, without consuming simulation randomness. Station interactions and\nexplicit custom-policy `act` calls are unchanged.\n"
+      }
+    }
+  },
+  "player": [
+    {
+      "id": "baseline",
+      "name": "Baseline",
+      "type": "player",
+      "file": "players/base.bas",
+      "description": "Observation-limited Cogs vs Clips BASIC baseline."
+    }
+  ],
+  "variants": [
+    {
+      "id": "competition",
+      "name": "Competition",
+      "game_config": {
+        "players": [
+          {
+            "name": "Cog 0"
+          },
+          {
+            "name": "Cog 1"
+          },
+          {
+            "name": "Cog 2"
+          },
+          {
+            "name": "Cog 3"
+          },
+          {
+            "name": "Cog 4"
+          },
+          {
+            "name": "Cog 5"
+          },
+          {
+            "name": "Cog 6"
+          },
+          {
+            "name": "Cog 7"
+          },
+          {
+            "name": "Cog 8"
+          },
+          {
+            "name": "Cog 9"
+          },
+          {
+            "name": "Cog 10"
+          },
+          {
+            "name": "Cog 11"
+          },
+          {
+            "name": "Cog 12"
+          },
+          {
+            "name": "Cog 13"
+          },
+          {
+            "name": "Cog 14"
+          },
+          {
+            "name": "Cog 15"
+          },
+          {
+            "name": "Cog 16"
+          },
+          {
+            "name": "Cog 17"
+          },
+          {
+            "name": "Cog 18"
+          },
+          {
+            "name": "Cog 19"
+          },
+          {
+            "name": "Cog 20"
+          },
+          {
+            "name": "Cog 21"
+          },
+          {
+            "name": "Cog 22"
+          },
+          {
+            "name": "Cog 23"
+          },
+          {
+            "name": "Cog 24"
+          },
+          {
+            "name": "Cog 25"
+          },
+          {
+            "name": "Cog 26"
+          },
+          {
+            "name": "Cog 27"
+          },
+          {
+            "name": "Cog 28"
+          },
+          {
+            "name": "Cog 29"
+          },
+          {
+            "name": "Cog 30"
+          },
+          {
+            "name": "Cog 31"
+          }
+        ],
+        "seed": 1,
+        "max_ticks": 10000
+      },
+      "description": "Full-length deterministic competition match."
+    }
+  ],
+  "certification": {
+    "game_config": {
+      "players": [
+        {
+          "name": "Cog 0"
+        },
+        {
+          "name": "Cog 1"
+        },
+        {
+          "name": "Cog 2"
+        },
+        {
+          "name": "Cog 3"
+        },
+        {
+          "name": "Cog 4"
+        },
+        {
+          "name": "Cog 5"
+        },
+        {
+          "name": "Cog 6"
+        },
+        {
+          "name": "Cog 7"
+        },
+        {
+          "name": "Cog 8"
+        },
+        {
+          "name": "Cog 9"
+        },
+        {
+          "name": "Cog 10"
+        },
+        {
+          "name": "Cog 11"
+        },
+        {
+          "name": "Cog 12"
+        },
+        {
+          "name": "Cog 13"
+        },
+        {
+          "name": "Cog 14"
+        },
+        {
+          "name": "Cog 15"
+        },
+        {
+          "name": "Cog 16"
+        },
+        {
+          "name": "Cog 17"
+        },
+        {
+          "name": "Cog 18"
+        },
+        {
+          "name": "Cog 19"
+        },
+        {
+          "name": "Cog 20"
+        },
+        {
+          "name": "Cog 21"
+        },
+        {
+          "name": "Cog 22"
+        },
+        {
+          "name": "Cog 23"
+        },
+        {
+          "name": "Cog 24"
+        },
+        {
+          "name": "Cog 25"
+        },
+        {
+          "name": "Cog 26"
+        },
+        {
+          "name": "Cog 27"
+        },
+        {
+          "name": "Cog 28"
+        },
+        {
+          "name": "Cog 29"
+        },
+        {
+          "name": "Cog 30"
+        },
+        {
+          "name": "Cog 31"
+        }
+      ],
+      "seed": 1,
+      "max_ticks": 10000
+    },
+    "players": [
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      },
+      {
+        "player_id": "baseline"
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+.git
+out
+.deps
+*.replay
+coworld/dist
+coworld/replay-viewer

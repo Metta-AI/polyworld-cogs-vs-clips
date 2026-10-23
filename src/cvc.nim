@@ -4,6 +4,8 @@ import
 
 when not defined(headless):
   import cvc/clients
+when defined(coworld):
+  import cvc/hosted
 
 proc main() =
   ## Runs a headless match or launches the shared rich client.
@@ -54,7 +56,10 @@ proc main() =
       runClient(session, sources, recordPath, settings.paused, settings.speed)
 
 try:
-  main()
+  when defined(coworld):
+    runHosted()
+  else:
+    main()
 except CvcError as error:
   echo "CVC: ", error.msg
   quit(1)

@@ -17,12 +17,52 @@ canvas{display:block;width:100%;height:100%;outline:none}
 const canvas=document.getElementById('canvas');
 canvas.width=innerWidth;canvas.height=innerHeight;
 const query=new URLSearchParams(location.search);
+const replayUrl=new URLSearchParams(location.hash.slice(1)).get('replay')||query.get('replay');
+const post=m=>{if(parent!==window)parent.postMessage({src:'coworld-replay',...m},'*')};
+let ready=false,failed=false;
+window.cvcReplayError=message=>{
+ failed=true;
+ document.getElementById('loading').textContent=String(message);
+ document.getElementById('loading').style.display='grid';
+ post({type:'error',message:String(message)});
+};
+window.cvcReplayFrame=()=>{
+ if(ready||failed)return;
+ ready=true;
+ post({type:'phase',phase:'replay_parsed'});
+ document.getElementById('loading').style.display='none';
+ canvas.focus();
+ setTimeout(()=>post({type:'ready'}),0);
+};
+post({type:'loading'});
 var Module={canvas,
  locateFile(path){return path+"?v=__BUILD_ID__"},
- arguments:['--seed',query.get('seed')||'1'],
- print:console.log,printErr:console.error,
- onRuntimeInitialized(){document.getElementById('loading').remove();canvas.focus()},
- onAbort(error){document.getElementById('loading').textContent=String(error)}
+ arguments:replayUrl?['--replay','/match.replay']:['--seed',query.get('seed')||'1'],
+ print(message){console.log(message);if(String(message).startsWith('CVC:'))cvcReplayError(message)},
+ printErr:console.error,
+ onAbort:window.cvcReplayError,
+ preRun:[function(){
+  post({type:'phase',phase:'bundle_ready'});
+  if(!replayUrl)return;
+  addRunDependency('replay');
+  (async()=>{
+   try{
+    post({type:'phase',phase:'replay_fetch_start'});
+    const response=await fetch(replayUrl);
+    if(!response.ok)throw Error('Replay download failed: HTTP '+response.status);
+    let bytes=new Uint8Array(await response.arrayBuffer());
+    const gzip=bytes[0]===31&&bytes[1]===139;
+    const zlib=(bytes[0]&15)===8&&(bytes[0]>>4)<=7&&((bytes[0]<<8)|bytes[1])%31===0;
+    post({type:'phase',phase:'replay_fetch_end',bytes:bytes.length,compressed:gzip||zlib});
+    if(gzip||zlib){
+     const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream(gzip?'gzip':'deflate'));
+     bytes=new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+    FS.writeFile('/match.replay',bytes);
+    removeRunDependency('replay');
+   }catch(error){cvcReplayError(error.message)}
+  })();
+ }]
 };
 // Windy owns canvas sizing and device-pixel-ratio changes.
 </script>

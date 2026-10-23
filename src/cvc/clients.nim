@@ -3,6 +3,11 @@ import
   silky, vmath, chroma, pixie,
   sims, replays, bots, renders, colors, profiles, timings, scrubs
 
+when defined(emscripten):
+  proc runBrowserScript(script: cstring) {.
+    importc: "emscripten_run_script", header: "<emscripten.h>".}
+    ## Runs presentation notifications in the browser host.
+
 const
   Background = rgbx(12, 20, 26, 255)
   Ink = rgbx(237, 216, 130, 255)
@@ -508,10 +513,15 @@ proc renderFrame(client: Client) {.measure.} =
           client.sk.drawRect(edge.xy, edge.zw, rgbx(255, 255, 255, 255))
     client.sk.endUi()
     client.window.swapBuffers()
+    when defined(emscripten):
+      runBrowserScript("window.cvcReplayFrame && window.cvcReplayFrame()")
   except CvcError as error:
     client.paused = true
     client.message = error.msg
     echo error.msg
+    when defined(emscripten):
+      runBrowserScript("window.cvcReplayError && " &
+        "window.cvcReplayError('Replay simulation failed; see console')")
 
 proc runClient*(session: Session, sources: array[CogCount, string],
     recordPath: string, paused = false, speed = 1'i32) =

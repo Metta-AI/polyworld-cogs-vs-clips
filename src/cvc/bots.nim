@@ -3,6 +3,9 @@ import
   polyworld/policyhosts,
   sims, profiles, routes, yields
 
+when defined(coworld):
+  import polyworld/coworld
+
 const BaselineSource* = staticRead("../../players/base.bas")
 
 type
@@ -291,7 +294,11 @@ proc newBots*(sources: array[CogCount, string]): Bots =
   try:
     for i in 0 ..< CogCount:
       let
-        program = compile(sources[i], schema, limits)
+        program =
+          when defined(coworld):
+            compilePlayer(sources[i], schema, limits, i)
+          else:
+            compile(sources[i], schema, limits)
         brain = Brain(slot: i, navigation: newRoutes())
       brain.runtime = initRuntime(program, brain.host(), limits)
       result.brains[i] = brain
@@ -314,10 +321,16 @@ proc decide*(bots: Bots, world: var World): Actions {.measure.} =
     if brain.error.len == 0:
       try:
         brain.runtime.restart()
-        discard brain.runtime.run()
+        when defined(coworld):
+          discard brain.runtime.run(playerPrinter(i))
+        else:
+          discard brain.runtime.run()
       except BasicError as error:
         brain.error = error.msg
-        echo "Cog ", i, " policy stopped: ", error.msg
+        when defined(coworld):
+          playerError(i, error.msg)
+        else:
+          echo "Cog ", i, " policy stopped: ", error.msg
     result[i] = brain.action
     brain.world = nil
 

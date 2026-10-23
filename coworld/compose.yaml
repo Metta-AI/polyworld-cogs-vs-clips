@@ -1,0 +1,7 @@
+services:
+  game:
+    image: polyworld-cogs-vs-clips-coworld:latest
+    platform: linux/amd64
+    build:
+      context: ..
+      dockerfile: coworld/Dockerfile

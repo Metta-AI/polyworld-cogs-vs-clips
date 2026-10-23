@@ -5,3 +5,5 @@ nimcache/
 .DS_Store
 __pycache__/
 *.pyc
+coworld/dist/
+coworld/replay-viewer/
