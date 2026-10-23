@@ -30,12 +30,13 @@ proc territory*(world: World, tile: int32): Owner =
     if distance < radius * radius:
       strengths[station.owner] += radius * 1024 -
         root(int64(distance) * 1024 * 1024)
-  if strengths[Cogs] > strengths[Clips]:
-    Cogs
-  elif strengths[Clips] > strengths[Cogs]:
-    Clips
-  else:
-    Neutral
+  var best = 0'i32
+  for team in Teams:
+    if strengths[team] > best:
+      best = strengths[team]
+      result = team
+    elif strengths[team] == best:
+      result = Neutral
 
 proc linked*(world: World, tile: int32, owner: Owner): bool =
   ## Checks the capture reach of a team's current network.
@@ -70,12 +71,13 @@ proc reconnect*(world: var World) =
 
 proc deposit(world: var World, slot: int): bool =
   ## Transfers cargo into the shared bank without losing overflow.
+  let team = world.cogs[slot].team
   var total = 0'i32
-  for amount in world.bank:
+  for amount in world.banks[team]:
     total += amount
   for element in Element:
     let amount = min(world.cogs[slot].cargo[element], 10000 - total)
-    world.bank[element] += amount
+    world.banks[team][element] += amount
     world.cogs[slot].cargo[element] -= amount
     total += amount
     result = result or amount > 0
@@ -84,23 +86,27 @@ proc deposit(world: var World, slot: int): bool =
 
 proc useStation*(world: var World, slot, index: int) =
   ## Resolves a bump interaction against one station.
-  let station = world.stations[index]
+  let
+    station = world.stations[index]
+    team = world.cogs[slot].team
   case station.kind
   of Hub:
+    if station.owner != team:
+      return
     if world.deposit(slot):
       return
     if world.cogs[slot].hearts >= HeartLimit:
       return
-    if world.hearts > 0:
-      dec world.hearts
+    if world.hearts[team] > 0:
+      dec world.hearts[team]
       inc world.cogs[slot].hearts
       world.cogs[slot].feedback = Crafted
     else:
-      for amount in world.bank:
+      for amount in world.banks[team]:
         if amount < HeartCost:
           return
       for element in Element:
-        world.bank[element] -= HeartCost
+        world.banks[team][element] -= HeartCost
       inc world.cogs[slot].hearts
       world.cogs[slot].feedback = Crafted
   of Extractor:
@@ -115,14 +121,16 @@ proc useStation*(world: var World, slot, index: int) =
       if world.stations[index].stock == 0:
         world.tiles[station.tile].station = -1
   of Gear:
+    if station.owner != team:
+      return
     if world.cogs[slot].role == station.role:
       return
     let cost = GearCosts[station.role]
     for element in Element:
-      if world.bank[element] < cost[element]:
+      if world.banks[team][element] < cost[element]:
         return
     for element in Element:
-      world.bank[element] -= cost[element]
+      world.banks[team][element] -= cost[element]
     world.cogs[slot].role = station.role
     world.cogs[slot].hp = min(world.cogs[slot].hp, station.role.maxHp)
     world.cogs[slot].energy = min(
@@ -130,20 +138,20 @@ proc useStation*(world: var World, slot, index: int) =
     )
     world.cogs[slot].feedback = Equipped
   of Junction:
-    if station.owner == Cogs:
+    if station.owner == team:
       discard world.deposit(slot)
     elif world.cogs[slot].hearts > 0:
       case world.cogs[slot].role
       of Scrambler:
-        if station.owner == Clips:
+        if station.owner != Neutral and station.owner != team:
           dec world.cogs[slot].hearts
           world.stations[index].owner = Neutral
           world.cogs[slot].feedback = Disrupted
           world.reconnect()
       of Aligner:
-        if station.owner == Neutral and world.linked(station.tile, Cogs):
+        if station.owner == Neutral and world.linked(station.tile, team):
           dec world.cogs[slot].hearts
-          world.stations[index].owner = Cogs
+          world.stations[index].owner = team
           world.cogs[slot].feedback = Captured
       else:
         discard
@@ -175,60 +183,8 @@ proc act(world: var World, slot: int, action: Action) =
     world.cogs[slot].tile = tile
     world.cogs[slot].feedback = Moved
 
-proc frontier(world: World, ship: Station): array[MaxStations, bool] =
-  ## Follows one ship's lane through junctions within expansion range.
-  for i, station in world.stations:
-    result[i] = station.kind == Ship and station.lane == ship.lane
-  var changed = true
-  while changed:
-    changed = false
-    for i, station in world.stations:
-      if result[i] or station.kind != Junction or
-        station.owner != Clips or station.lane != ship.lane:
-          continue
-      for j, other in world.stations:
-        if result[j] and
-          other.tile.distance2(station.tile) <= AlignRadius * AlignRadius:
-            result[i] = true
-            changed = true
-            break
-
-proc spread*(world: var World) =
-  ## Expands each ship's connected Clips frontier at fixed intervals.
-  if world.tick < ClipsStart or
-    (world.tick - ClipsStart) mod ClipsPeriod != 0:
-      return
-  for ship in world.stations:
-    if ship.kind != Ship:
-      continue
-    for targetOwner in [Neutral, Cogs]:
-      let reached = world.frontier(ship)
-      var
-        target = -1
-        distance = int32.high
-      for i, station in world.stations:
-        if station.kind != Junction or station.owner != targetOwner:
-          continue
-        var reachable = false
-        for j, other in world.stations:
-          if reached[j] and
-            other.tile.distance2(station.tile) <= AlignRadius * AlignRadius:
-              reachable = true
-              break
-        if reachable:
-          let candidate = ship.tile.distance2(station.tile)
-          if candidate < distance:
-            target = i
-            distance = candidate
-      if target >= 0:
-        world.stations[target].owner =
-          if targetOwner == Neutral: Clips else: Neutral
-        world.stations[target].lane =
-          if targetOwner == Neutral: ship.lane else: 0
-        world.reconnect()
-
 proc tick*(world: var World, actions: Actions) =
-  ## Applies actions, Clips events, territory effects, and integer scoring.
+  ## Applies actions, team territory effects, and integer scoring.
   if world.tick >= MaxTicks:
     return
   var order: array[CogCount, int]
@@ -238,20 +194,17 @@ proc tick*(world: var World, actions: Actions) =
     swap(order[i], order[world.rng.below(int32(i + 1))])
   for slot in order:
     world.act(slot, actions[slot])
-  world.spread()
   let solar = if world.tick mod DayLength < DayLength div 2: 3 else: 1
   for i in 0 ..< CogCount:
     var cog = addr world.cogs[i]
     cog.hp = max(0, cog.hp - 1)
     cog.energy = min(cog.role.maxEnergy, cog.energy + int32(solar))
-    case world.territory(cog.tile)
-    of Cogs:
+    let owner = world.territory(cog.tile)
+    if owner == cog.team:
       cog.hp = min(cog.role.maxHp, cog.hp + 100)
       cog.energy = min(cog.role.maxEnergy, cog.energy + 100)
-    of Clips:
+    elif owner != Neutral:
       cog.hp = max(0, cog.hp - 1)
-    of Neutral:
-      discard
     if cog.hp == 0:
       cog.role = Ungeared
       cog.hearts = 0
@@ -259,10 +212,8 @@ proc tick*(world: var World, actions: Actions) =
       cog.feedback = Broken
   for station in world.stations:
     if station.kind == Junction:
-      case station.owner
-      of Cogs: inc world.score
-      of Clips: inc world.clipsScore
-      of Neutral: discard
+      if station.owner != Neutral:
+        inc world.scores[station.owner]
   inc world.tick
 
 proc stateHash*(world: World): uint64 =

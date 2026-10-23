@@ -1766,6 +1766,70 @@
     {
       "path": "data/view/grid10.png",
       "sha256": "fd88eecd28bf9f8a56ba58cecc020844676c491de67536f85a6dea1e6c091c0f"
+    },
+    {
+      "path": "data/agents/tracks.ee.png",
+      "sha256": "fb0a40e0523b65daef314b7c96bb7de660460fae658b135c8fa8b4ebcc1b0c06"
+    },
+    {
+      "path": "data/agents/tracks.en.png",
+      "sha256": "08641f57a02771a17ded5d32f5997217d7c914c4d2e8d9b9f18a04d220e38522"
+    },
+    {
+      "path": "data/agents/tracks.es.png",
+      "sha256": "3fdec9991b0be7828bff380829533d129309f35208702ea8fde5ca3c70fc75ea"
+    },
+    {
+      "path": "data/agents/tracks.ew.png",
+      "sha256": "1c667b6ffa3e6f74bfd5a4a9e0a1a28de980b28a62a5417328d6f3e558978965"
+    },
+    {
+      "path": "data/agents/tracks.ne.png",
+      "sha256": "5ee7ab4efe6febc826ba3a1ec4e313d4a2ea4823d426022a3d36d95107c8f459"
+    },
+    {
+      "path": "data/agents/tracks.nn.png",
+      "sha256": "f44273ea995e07e574d8dc6f5f0e907a27b246405f617262dbc16cdbd416ce9a"
+    },
+    {
+      "path": "data/agents/tracks.ns.png",
+      "sha256": "eb97c934d1aa8fb8ba8620cf66f952b27e809c9238cf4b7ae43e397833e9ae3e"
+    },
+    {
+      "path": "data/agents/tracks.nw.png",
+      "sha256": "3867ae969110621194f0c167b325c3b27a431ca273b48f2e650d9e5b50db75d7"
+    },
+    {
+      "path": "data/agents/tracks.se.png",
+      "sha256": "0046bfd4e3fcdd56f10f58e07b321bb950d6bf424b2fe1c74dcd42164fee377f"
+    },
+    {
+      "path": "data/agents/tracks.sn.png",
+      "sha256": "c8ffebdb9e0b47027104154cc6942f56e3061f0d0af4bb6fd8f0bd31fc380e80"
+    },
+    {
+      "path": "data/agents/tracks.ss.png",
+      "sha256": "a449bc7cc6757a4305f18370ac6b47bd8959d26ff2c2610c031c8332ca214256"
+    },
+    {
+      "path": "data/agents/tracks.sw.png",
+      "sha256": "5f168c396122ba1f38c1333afd02125bb2e6403c54fae2df4972f45888e85ba3"
+    },
+    {
+      "path": "data/agents/tracks.we.png",
+      "sha256": "dc0ffe4166057d78ede0d8164b7adb0dc1452c3901084bf735ba3fd6032b2d77"
+    },
+    {
+      "path": "data/agents/tracks.wn.png",
+      "sha256": "c8d2eec6e792b51522515a48d986828c0bde7c5954f8b3518e58fac899a820c1"
+    },
+    {
+      "path": "data/agents/tracks.ws.png",
+      "sha256": "805d1bf9098e2e064dac5cc64fd3292cf8e6bd02d20cdead2cecf4f0d013484f"
+    },
+    {
+      "path": "data/agents/tracks.ww.png",
+      "sha256": "88845882733ae6defbf569d1b88f9055b6ad19ff910862e0f6b6b267194c5b4e"
     }
   ]
 }

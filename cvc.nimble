@@ -7,3 +7,4 @@ bin = @["cvc"]
 requires "nim >= 2.2.10"
 requires "https://github.com/Metta-AI/polyworld#9103567266f0a1a2d54e3808f9b0e005404cb032"
 requires "silky", "bassy", "flatty", "benchy"
+requires "fluffy >= 1.0.0"

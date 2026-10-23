@@ -1,7 +1,7 @@
 import
   bassy,
   polyworld/policyhosts,
-  sims
+  sims, profiles, routes, yields
 
 const BaselineSource* = staticRead("../../players/base.bas")
 
@@ -13,6 +13,8 @@ type
   Brain = ref object
     runtime: Runtime
     memory: Memory
+    navigation: Routes
+    yielding: YieldMemory
     world: ptr World
     slot: int
     action: Action
@@ -20,7 +22,10 @@ type
   Bots* = ref object
     brains: array[CogCount, Brain]
 
-proc remember(brain: Brain) =
+when defined(benchRoutes):
+  var routeProbe: proc(brain: Brain, target: int32)
+
+proc remember(brain: Brain) {.measure.} =
   ## Updates only tiles and stations inside the current observation window.
   let
     world = brain.world[]
@@ -40,54 +45,81 @@ proc remember(brain: Brain) =
           brain.memory.stations[previous].stock = 0
       brain.memory.seen[tile] = true
       brain.memory.tiles[tile] = world.tiles[tile]
+      when not defined(cvcBfs) or defined(benchRoutes):
+        brain.navigation.remember(
+          tile,
+          not world.tiles[tile].wall and world.tiles[tile].station < 0
+        )
       let index = world.tiles[tile].station
       if index >= 0:
         brain.memory.stations[index] = world.stations[index]
 
-proc route(brain: Brain, target: int32): Action =
-  ## Routes through remembered terrain to an adjacent bump interaction.
-  let start = brain.world.cogs[brain.slot].tile
-  if target == start or target < 0:
-    return Rest
-  var
-    queue: array[TileCount, int32]
-    visited: array[TileCount, bool]
-    first: array[TileCount, Action]
-    head = 0
-    tail = 1
-  queue[0] = start
-  visited[start] = true
-  for i, cog in brain.world.cogs:
-    if i != brain.slot and brain.world[].visible(brain.slot, cog.tile):
-      visited[cog.tile] = true
-  while head < tail:
-    let tile = queue[head]
-    inc head
-    for offset in 0 ..< 4:
-      let
-        direction = Action(1 + (offset + brain.slot) mod 4)
-        next = tile.neighbor(direction)
-      if next < 0 or visited[next]:
-        continue
-      let action = if tile == start: direction else: first[tile]
-      if next == target:
-        return action
-      if brain.memory.seen[next] and
-        (brain.memory.tiles[next].wall or
-        brain.memory.tiles[next].station >= 0):
+when defined(cvcBfs) or defined(benchRoutes):
+  proc routeBfs(brain: Brain, target: int32): Action {.measure.} =
+    ## Routes through remembered terrain to an adjacent bump interaction.
+    let start = brain.world.cogs[brain.slot].tile
+    if target == start or target < 0:
+      return Rest
+    var
+      queue: array[TileCount, int32]
+      visited: array[TileCount, bool]
+      first: array[TileCount, Action]
+      head = 0
+      tail = 1
+    queue[0] = start
+    visited[start] = true
+    for i, cog in brain.world.cogs:
+      if i != brain.slot and brain.world[].visible(brain.slot, cog.tile):
+        visited[cog.tile] = true
+    while head < tail:
+      let tile = queue[head]
+      inc head
+      for offset in 0 ..< 4:
+        let
+          direction = Action(1 + (offset + brain.slot) mod 4)
+          next = tile.neighbor(direction)
+        if next < 0 or visited[next]:
           continue
-      visited[next] = true
-      first[next] = action
-      queue[tail] = next
-      inc tail
+        let action = if tile == start: direction else: first[tile]
+        if next == target:
+          return action
+        if brain.memory.seen[next] and
+          (brain.memory.tiles[next].wall or
+          brain.memory.tiles[next].station >= 0):
+            continue
+        visited[next] = true
+        first[next] = action
+        queue[tail] = next
+        inc tail
 
-proc baseline(brain: Brain): Action =
+proc route(brain: Brain, target: int32): Action {.measure.} =
+  ## Finds a cardinal jump path using only this bot's remembered observations.
+  when defined(benchRoutes):
+    if routeProbe != nil:
+      routeProbe(brain, target)
+  when defined(cvcBfs):
+    result = brain.routeBfs(target)
+  else:
+    var
+      occupied: array[CogCount - 1, int32]
+      count = 0
+    for i, cog in brain.world.cogs:
+      if i != brain.slot and brain.world[].visible(brain.slot, cog.tile):
+        occupied[count] = cog.tile
+        inc count
+    result = brain.navigation.findRoute(
+      brain.world.cogs[brain.slot].tile,
+      target,
+      occupied.toOpenArray(0, count - 1)
+    ).action
+
+proc baseline(brain: Brain): Action {.measure.} =
   ## Chooses a role task using remembered observations and the shared bank.
   let
     world = brain.world[]
     cog = world.cogs[brain.slot]
     desired = [Miner, Miner, Miner, Miner, Aligner, Aligner,
-      Scrambler, Scout][brain.slot]
+      Scrambler, Scout][brain.slot mod TeamSize]
   var
     target = -1'i32
     distance = int32.high
@@ -100,23 +132,28 @@ proc baseline(brain: Brain): Action =
       target = tile
       distance = candidate
   if cog.hp < 25:
-    consider(tileAt(43, 43))
+    consider(cog.team.home)
   elif cog.role != desired:
     for station in brain.memory.stations:
-      if station.kind == Gear and station.role == desired:
+      if station.kind == Gear and station.owner == cog.team and
+        station.role == desired:
         consider(station.tile)
     if target < 0:
-      let locations = [tileAt(44, 47), tileAt(40, 47),
-        tileAt(46, 47), tileAt(42, 47)]
+      let
+        hub = cog.team.home
+        locations = [tileAt(hub.x + 1, hub.y + 4),
+          tileAt(hub.x - 3, hub.y + 4),
+          tileAt(hub.x + 3, hub.y + 4),
+          tileAt(hub.x - 1, hub.y + 4)]
       consider(locations[[Miner, Aligner, Scout, Scrambler].find(desired)])
   elif cog.carried >= cog.role.capacity or
     (cog.role notin {Miner, Scout} and cog.carried > 0):
-      consider(tileAt(43, 43))
+      consider(cog.team.home)
       for station in brain.memory.stations:
-        if station.kind == Junction and station.owner == Cogs:
+        if station.kind == Junction and station.owner == cog.team:
           consider(station.tile)
   elif cog.role in {Aligner, Scrambler} and cog.hearts == 0:
-    consider(tileAt(43, 43))
+    consider(cog.team.home)
   elif cog.role in {Miner, Scout}:
     let wanted = Element(brain.slot mod 4)
     for station in brain.memory.stations:
@@ -127,13 +164,13 @@ proc baseline(brain: Brain): Action =
     for station in brain.memory.stations:
       if station.kind != Junction or station.tile < 0:
         continue
-      if cog.role == Scrambler and station.owner == Clips:
+      if cog.role == Scrambler and station.owner != Neutral and station.owner != cog.team:
         consider(station.tile)
       elif cog.role == Aligner and station.owner == Neutral:
-        var reachable = station.tile.distance2(tileAt(43, 43)) <=
+        var reachable = station.tile.distance2(cog.team.home) <=
           HubAlignRadius * HubAlignRadius
         for other in brain.memory.stations:
-          if other.tile >= 0 and other.owner == Cogs and
+          if other.tile >= 0 and other.owner == cog.team and
             other.kind == Junction and
             other.tile.distance2(station.tile) <= AlignRadius * AlignRadius:
               reachable = true
@@ -145,8 +182,9 @@ proc baseline(brain: Brain): Action =
         tile.x < Width - 1 and tile.y < Height - 1:
           consider(tile)
   result = brain.route(target)
-  if cog.feedback == Blocked and world.tick mod 5 == 0:
-    result = Action(1 + (world.tick div 5 + int32(brain.slot)) mod 4)
+  result = brain.yielding.yieldMove(
+    world, brain.slot, result, brain.navigation.crowded
+  )
 
 proc host(brain: Brain): Host =
   ## Registers the fixed BASIC observation and action boundary.
@@ -163,10 +201,15 @@ proc host(brain: Brain): Host =
     of 5: cog.hp
     of 6: cog.energy
     of 7: cog.hearts
+    of 8: int32(cog.team)
     else: 0
   proc bankProc(args: openArray[int32]): int32 =
     ## Reads shared bank inventory by element index.
-    if args[0] in 0 .. 3: brain.world.bank[Element(args[0])] else: 0
+    if args[0] in 0 .. 3:
+      let team = brain.world.cogs[brain.slot].team
+      brain.world.banks[team][Element(args[0])]
+    else:
+      0
   proc cargoProc(args: openArray[int32]): int32 =
     ## Reads carried inventory by element index.
     if args[0] in 0 .. 3:
@@ -216,6 +259,7 @@ proc host(brain: Brain): Host =
     of 1: cog.tile.y
     of 2: int32(cog.role)
     of 3: cog.hp
+    of 4: int32(cog.team)
     else: -1
   proc actProc(args: openArray[int32]): int32 =
     ## Queues a cardinal action, treating invalid input as rest.
@@ -235,8 +279,8 @@ proc host(brain: Brain): Host =
   discard result.addFunction("act", 1, actProc, 1)
   discard result.addFunction("baseline", 0, autoProc, TileCount * 4)
 
-proc newBots*(source = BaselineSource): Bots =
-  ## Compiles the policy once and creates eight independent runtimes.
+proc newBots*(sources: array[CogCount, string]): Bots =
+  ## Compiles each slot policy and creates independent runtimes.
   new result
   var limits = defaultLimits()
   limits.maxInstructions = 100_000
@@ -245,15 +289,23 @@ proc newBots*(source = BaselineSource): Bots =
   limits.maxPrintEvents = 16
   let schema = Brain(slot: 0).host()
   try:
-    let program = compile(source, schema, limits)
     for i in 0 ..< CogCount:
-      let brain = Brain(slot: i)
+      let
+        program = compile(sources[i], schema, limits)
+        brain = Brain(slot: i, navigation: newRoutes())
       brain.runtime = initRuntime(program, brain.host(), limits)
       result.brains[i] = brain
   except BasicError as error:
     fail("policy compilation failed: " & error.msg)
 
-proc decide*(bots: Bots, world: var World): Actions =
+proc newBots*(source = BaselineSource): Bots =
+  ## Fills all fixed Cog slots with one policy source.
+  var sources: array[CogCount, string]
+  for item in sources.mitems:
+    item = source
+  newBots(sources)
+
+proc decide*(bots: Bots, world: var World): Actions {.measure.} =
   ## Runs all policies against the same pre-tick state.
   for i, brain in bots.brains:
     brain.world = addr world

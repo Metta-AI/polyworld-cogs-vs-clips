@@ -1,7 +1,7 @@
 import
   std/[monotimes, times, strutils, math],
   silky, vmath, chroma, pixie,
-  sims, replays, bots, renders, colors
+  sims, replays, bots, renders, colors, profiles, timings, scrubs
 
 const
   Background = rgbx(12, 20, 26, 255)
@@ -19,7 +19,7 @@ type
     sk: Silky
     paused: bool
     live: bool
-    speed: int
+    rate: float64
     selected: int
     inspected: int
     takeover: bool
@@ -31,6 +31,9 @@ type
     lastTime: MonoTime
     previous: array[CogCount, int32]
     renderer: Renderer
+    scrubs: ScrubCache
+    pendingSeek, pendingSnap: bool
+    pendingTarget: int32
     grid, vision, fog, miniature, repeating, dragging: bool
     message: string
     recordPath: string
@@ -98,7 +101,7 @@ proc viewport(client: Client): Vec2 =
   ## Uses the entire window for the world beneath the themed HUD.
   client.size
 
-proc step(client: Client) =
+proc step(client: Client) {.measure.} =
   ## Advances one lockstep frame, optionally replacing one policy action.
   for i, cog in client.session.world.cogs:
     client.previous[i] = cog.tile
@@ -127,17 +130,35 @@ proc saveReplay(client: Client) =
     download(path.cstring)
   client.message = "Saved " & path
 
-proc seek(client: Client, target: int32) =
-  ## Reconstructs the live world and presentation from recorded lockstep input.
-  let destination = clamp(target, 0'i32, int32(client.session.tape.hashes.len))
-  client.session = fromReplay(client.session.tape)
-  client.renderer.reset(client.session.world)
+proc seek(client: Client, target: int32, snap = false) =
+  ## Restores a five-percent checkpoint, advancing only for an exact seek.
+  client.paused = true
+  client.accumulator = 0
+  if client.scrubs.points.len == 0 or
+    client.scrubs.duration != int32(client.session.tape.hashes.len):
+      client.scrubs = beginScrubs(client.session.tape)
+  client.pendingSeek = not client.scrubs.available(target, snap)
+  if client.pendingSeek:
+    client.pendingTarget = target
+    client.pendingSnap = snap
+    return
+  let
+    index = client.scrubs.pointAt(target, snap)
+    point = client.scrubs.points[index]
+    destination =
+      if snap:
+        point.world.tick
+      else:
+        clamp(target, 0'i32, client.scrubs.duration)
+  client.session.world = point.world
+  client.session.playback = true
+  client.session.error = ""
+  client.renderer.restore(point)
   while client.session.world.tick < destination:
     client.session.advance()
     client.renderer.observe(client.session.world)
   for i, cog in client.session.world.cogs:
     client.previous[i] = cog.tile
-  client.paused = true
   client.takeover = false
 
 proc iconButton(client: Client, pos: Vec2, name: string,
@@ -187,8 +208,8 @@ proc drawMap(client: Client, mini = false) =
       else: float32(clamp(client.accumulator * TickRate, 0.0, 1.0))
   client.renderer.drawWorld(client.session.world, client.previous,
     fraction, client.selected, client.inspected, client.window.size,
-    area, if mini: vec2(43.5) else: client.center,
-    if mini: 300'f / 98 else: client.zoom,
+    area, if mini: vec2((Width.float32 - 1) / 2) else: client.center,
+    if mini: 300'f / (Width + 10).float32 else: client.zoom,
     mini or client.miniature, client.grid and not mini,
     client.vision, client.fog)
 
@@ -241,29 +262,33 @@ proc drawChrome(client: Client) =
     right = vec2(width - 559, height - 373)
     left = vec2(0, height - 422)
   client.sk.draw9Patch("ui/panel_topleft", 55, 50, 100, 30,
-    vec2(0), vec2(364, 301))
+    vec2(0), vec2(364, 389))
   client.label("Score", 90, 49)
   client.sprite("icons/objects/junction", vec2(238, 61), 32,
     rgbx(255, 255, 255, 255))
-  for i, owner in [Cogs, Clips]:
+  for i, owner in Teams:
     let y = 105 + i.float32 * 44
     var count = 0
     for station in world.stations:
       if station.kind == Junction and station.owner == owner:
         inc count
     client.sk.drawRect(vec2(46, y + 12), vec2(16), getTeamColor(ord(owner)))
-    let score = if owner == Cogs: world.score else: world.clipsScore
+    let score = world.scores[owner]
     client.cell(vec2(82, y), formatFloat(score.float / MaxTicks.float,
       ffDecimal, 2), 120)
     client.cell(vec2(214, y), $count)
   client.sk.draw9Patch("ui/panel_topright", 55, 30, 100, 30,
-    vec2(width - 488, 0), vec2(488, 307))
+    vec2(width - 488, 0), vec2(488, 395))
   for i, element in [Carbon, Oxygen, Germanium, Silicon]:
     let x = width - 438 + i.float32 * 98
     client.sprite("resources/" & ($element).toLowerAscii,
       vec2(x + 25, 55), 48, rgbx(255, 255, 255, 255))
-    client.cell(vec2(x + 9, 111), $world.bank[element])
-    client.cell(vec2(x + 9, 155), "0")
+    for row, team in Teams:
+      client.cell(vec2(x + 9, 111 + row.float32 * 44),
+        $world.banks[team][element])
+  for row, team in Teams:
+    client.sk.drawRect(vec2(width - 454, 123 + row.float32 * 44),
+      vec2(12), getTeamColor(ord(team)))
   client.image("ui/barstretch", vec2(589, height - 81),
     vec2(max(0'f, width - 1147), 81))
   client.sk.drawImage("ui/panel_bottomleft", left)
@@ -281,8 +306,10 @@ proc drawChrome(client: Client) =
   if client.transport(start, 2,
     if client.paused: "ui/play" else: "ui/pause", not client.paused):
       client.paused = not client.paused
+      client.pendingSeek = false
   if client.transport(start, 3, "ui/stepForward"):
     client.paused = true
+    client.pendingSeek = false
     client.step()
   if client.transport(start, 4, "ui/rewindToEnd"):
     client.seek(int32(client.session.tape.hashes.len))
@@ -298,8 +325,9 @@ proc drawChrome(client: Client) =
     if client.transport(right + vec2(230, 316), i,
       if i == 0: "ui/turtle"
       elif i == Speeds.high: "ui/rabbit"
-      else: "ui/speed", i > client.speed):
-        client.speed = i
+      else: "ui/speed", Speeds[i] > client.rate):
+        client.rate = Speeds[i]
+        client.accumulator = 0
   if client.iconButton(right + vec2(174, 44), "ui/move", client.takeover):
     client.takeover = not client.takeover
   if client.iconButton(right + vec2(174, 132), "ui/queue", client.miniature):
@@ -330,10 +358,25 @@ proc drawChrome(client: Client) =
   if client.hit(trackStart - 32, height - 70, trackWidth + 64, 68) and
     client.window.buttonPressed[MouseLeft]:
       client.dragging = true
-  if client.dragging and client.window.buttonReleased[MouseLeft]:
-    client.dragging = false
-    client.seek(int32(clamp((client.mouse.x - trackStart) /
-      max(1'f, trackWidth - 87), 0'f, 1'f) * duration))
+  if client.dragging:
+    let target = int32(clamp((client.mouse.x - trackStart) /
+      max(1'f, trackWidth - 87), 0'f, 1'f) * duration)
+    client.paused = true
+    if client.window.buttonReleased[MouseLeft]:
+      client.dragging = false
+      client.seek(target)
+    else:
+      let needsIndex = client.scrubs.points.len == 0 or
+        client.scrubs.duration != int32(client.session.tape.hashes.len)
+      if needsIndex or
+        client.scrubs.requiredTick(target, true) != client.session.world.tick:
+          client.seek(target, true)
+      else:
+        client.pendingSeek = false
+  if client.scrubs.points.len > 0 and not client.scrubs.complete():
+    client.label("Preparing seek points: " & $(
+      client.scrubs.progress() * 100 div max(1'i32, client.scrubs.duration)
+    ) & "%", width / 2 - 200, 40)
   if client.message.len > 0:
     client.label(client.message, width / 2 - 200, 12)
 
@@ -342,8 +385,8 @@ proc overHud(client: Client): bool =
   let
     width = client.size.x
     height = client.size.y
-  client.hit(0, 0, 350, 225) or
-    client.hit(width - 488, 0, 488, 230) or
+  client.hit(0, 0, 350, 330) or
+    client.hit(width - 488, 0, 488, 335) or
     client.hit(0, height - 390, 350, 390) or
     client.hit(350, height - 328, 105, 328) or
     client.hit(width - 300, height - 328, 300, 328) or
@@ -360,8 +403,10 @@ proc input(client: Client) =
     mouse = client.mouse()
   if window.buttonPressed[KeySpace]:
     client.paused = not client.paused
+    client.pendingSeek = false
   if window.buttonPressed[KeyPeriod]:
     client.paused = true
+    client.pendingSeek = false
     client.step()
   if window.buttonPressed[KeyM]:
     client.miniature = not client.miniature
@@ -375,8 +420,8 @@ proc input(client: Client) =
     client.saveReplay()
   if client.hit(30, client.size.y - 390, 300, 300) and
     window.buttonDown[MouseLeft]:
-      client.center = vec2(43.5) +
-        (mouse - vec2(180, client.size.y - 240)) * (98'f / 300)
+      client.center = vec2((Width.float32 - 1) / 2) +
+        (mouse - vec2(180, client.size.y - 240)) * ((Width + 10).float32 / 300)
       client.follow = false
   if not client.overHud():
     if window.scrollDelta.y != 0:
@@ -401,7 +446,7 @@ proc input(client: Client) =
     let tile = client.session.world.cogs[client.selected].tile
     client.center = vec2(tile.x.float32, tile.y.float32)
 
-proc frame(client: Client) =
+proc renderFrame(client: Client) {.measure.} =
   ## Runs bounded catch-up ticks and renders one independent client frame.
   let
     now = getMonoTime()
@@ -410,13 +455,19 @@ proc frame(client: Client) =
   client.sk.uiScale = 1
   try:
     client.input()
+    if client.scrubs.points.len > 0 and not client.scrubs.complete():
+      client.scrubs.extendScrubs()
+    if client.pendingSeek and
+      client.scrubs.available(client.pendingTarget, client.pendingSnap):
+        client.seek(client.pendingTarget, client.pendingSnap)
     if not client.paused:
-      client.accumulator += elapsed * Speeds[client.speed]
-      var steps = 0
-      while client.accumulator >= 1.0 / TickRate and steps < 20:
+      let steps =
+        when CvcTracePath.len > 0:
+          1
+        else:
+          frameTicks(client.accumulator, elapsed, client.rate)
+      for i in 0 ..< steps:
         client.step()
-        client.accumulator -= 1.0 / TickRate
-        inc steps
       if client.session.world.tick >= MaxTicks or
         (not client.live and client.session.playback and client.session.world.tick >=
         int32(client.session.tape.hashes.len)):
@@ -424,7 +475,11 @@ proc frame(client: Client) =
           if client.repeating and client.session.tape.hashes.len > 0:
             client.seek(0)
             client.paused = false
-    client.sk.beginUi(client.window, client.window.size)
+    let canvas = client.window.size
+    if canvas.x <= 0 or canvas.y <= 0:
+      return
+    glViewport(0, 0, canvas.x, canvas.y)
+    glDisable(GL_SCISSOR_TEST)
     client.sk.clearScreen(Background)
     client.drawMap()
     client.sk.beginUi(client.window, client.window.size)
@@ -434,13 +489,14 @@ proc frame(client: Client) =
     if client.selected >= 0:
       client.renderer.drawProfile(client.window.size,
         vec2((client.size.x - 623) / 2 + 424, client.size.y - 341),
-        client.session.world.cogs[client.selected].role)
+        client.session.world.cogs[client.selected].role,
+        client.session.world.cogs[client.selected].team)
     client.drawMap(true)
     client.sk.beginUi(client.window, client.window.size)
     let
-      ratio = 300'f / 98
+      ratio = 300'f / (Width + 10).float32
       origin = vec2(180, client.size.y - 240) +
-        (client.center - vec2(43.5)) * ratio
+        (client.center - vec2((Width.float32 - 1) / 2)) * ratio
       extent = client.size / client.zoom * ratio
       low = max(origin - extent / 2, vec2(30, client.size.y - 390))
       high = min(origin + extent / 2, vec2(330, client.size.y - 90))
@@ -457,18 +513,21 @@ proc frame(client: Client) =
     client.message = error.msg
     echo error.msg
 
-proc runClient*(session: Session, policy, recordPath: string) =
+proc runClient*(session: Session, sources: array[CogCount, string],
+    recordPath: string, paused = false, speed = 1'i32) =
   ## Opens the native or browser client with identical simulation code.
-  let window = newWindow("Cogs / Clips", ivec2(1440, 960))
+  let window = newWindow("FourScore", ivec2(1440, 960))
   window.makeContextCurrent()
   loadExtensions()
   let client = Client(
     session: session,
     live: not session.playback,
-    policies: newBots(policy),
+    policies: newBots(sources),
+    paused: paused,
+    rate: speed.float64,
     window: window,
     sk: newSilky(window, "data/atlas.png"),
-    center: vec2(44, 44),
+    center: vec2(29, 29),
     zoom: 26,
     selected: -1,
     inspected: -1,
@@ -477,19 +536,46 @@ proc runClient*(session: Session, policy, recordPath: string) =
   )
   client.sk.uiScale = 1
   client.renderer = newRenderer(client.sk, session.world)
+  if session.playback:
+    client.scrubs = beginScrubs(session.tape)
+    client.lastTime = getMonoTime()
   for i, cog in session.world.cogs:
     client.previous[i] = cog.tile
+  when CvcTracePath.len > 0:
+    var capturedFrames = 0
+  defer:
+    when CvcTracePath.len > 0:
+      finishCapture(CvcTracePath)
+    else:
+      finishCapture("out/profile.json")
   window.onFrame = proc() =
     ## Dispatches one frame from the platform event loop.
-    client.frame()
+    when not defined(emscripten):
+      if window.buttonPressed[KeyF2]:
+        toggleCapture()
+    when CvcTracePath.len > 0:
+      if capturedFrames == CvcTraceWarmup:
+        startCapture()
+    client.renderFrame()
+    when CvcTracePath.len > 0:
+      inc capturedFrames
+      if capturedFrames >= CvcTraceWarmup + CvcTraceFrames:
+        finishCapture(CvcTracePath)
+        echo "Profile tick=", session.world.tick,
+          " hash=", session.world.stateHash()
+        window.closeRequested = true
   window.onFileDrop = proc(fileName, fileData: string) =
     ## Opens a dropped action replay in read-only mode.
     try:
       client.session = loadBytes(fileData)
+      client.accumulator = 0
       client.live = false
       client.paused = true
       client.takeover = false
       client.renderer = newRenderer(client.sk, client.session.world)
+      client.scrubs = beginScrubs(client.session.tape)
+      client.pendingSeek = false
+      client.dragging = false
       for i, cog in client.session.world.cogs:
         client.previous[i] = cog.tile
       client.message = "Loaded " & fileName

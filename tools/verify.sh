@@ -3,8 +3,23 @@ set -eu
 cd "$(dirname "$0")/.."
 mkdir -p out
 nim check src/cvc.nim
+nim check -d:CvcTracePath=out/check-profile.json src/cvc.nim
+nim check -d:testPipes tests/test_pipes.nim
+nim check tests/test_timings.nim
+nim check tests/test_tracks.nim
+nim check tests/test_yields.nim
+nim check -d:testPipes tests/test_scrubs.nim
+nim check tests/test_routes.nim
 nim check tests/tests.nim
+nim check tests/test_options.nim
+nim r -d:release --nimcache:out/cache-options tests/test_options.nim
+nim r -d:release --nimcache:out/cache-timings tests/test_timings.nim
+nim r -d:release tests/test_tracks.nim
+nim r -d:release tests/test_yields.nim
+nim r -d:release -d:testPipes --nimcache:out/cache-scrubs tests/test_scrubs.nim
 nim r -d:release --nimcache:out/cache-tests tests/tests.nim
+nim r -d:release --nimcache:out/cache-routes tests/test_routes.nim
+nim r -d:release -d:testPipes --nimcache:out/cache-pipes tests/test_pipes.nim
 nim r -d:release --nimcache:out/cache-signatures tests/signatures.nim
 nim c -d:release -d:headless -d:emscripten --threads:off \
   --nimcache:out/cache-conformance \

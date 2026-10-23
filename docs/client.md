@@ -24,11 +24,40 @@ zooms, and clicking the minimap moves the camera. F toggles following the select
 Cog. Space toggles play, period steps, and F5 saves the action tape. WASD or arrow
 keys drive the selected Cog while control is enabled.
 
+Replay seeking prepares snapshots every 5% of the timeline in small background
+batches. Dragging previews the nearest snapshot; release seeks to the exact
+tick from the preceding snapshot. A progress label appears while the index is
+being prepared. Seeks wait for their checkpoint, following the latest drag
+position. Snapshots
+include simulation state, explored fog, tire tracks, and pipe history.
+
 Seeking reconstructs the current world from lockstep actions. A live match can
 continue recording when it reaches its recorded frontier. Dropped action tapes
-remain playback-only. Gameplay version 2 uses the original fixed Machina-1
-map; version 1 tapes are rejected because they describe a different arena.
+remain playback-only. Gameplay version 3 uses the fixed FourScore map and 32 seats. Older tapes
+are rejected because they describe a different game.
 
 Comparison screenshots are under `docs/comparison`. The reference viewer has
-four teams; this fixed game shows its two factions. Panel dimensions and artwork
-follow the original, with row counts adapted to those two factions.
+four teams, as does this fixed game. The score and bank panels show all four
+teams in red, blue, green, yellow order.
+
+## Native command line
+
+Run from the repository root:
+
+```sh
+nim r -d:release src/cvc.nim --bots:players/base.bas:32
+nim r -d:release src/cvc.nim --bots:players/base.bas:32 --record:match.replay
+nim r -d:release src/cvc.nim --replay:match.replay --play:false --speed:5
+```
+
+`--bot` and `--bots` are aliases. Repeat them to fill different slots, for example
+`--bots:players/base.bas:16 --bots:players/custom.bas:16`. Counts must total 32.
+Without bot arguments, every Cog uses the bundled baseline. Replay input cannot
+be combined with bot arguments. Space and equals forms also work, including
+`--replay match.replay` and `--record=match.replay`.
+
+Slots 0-7 are red, 8-15 blue, 16-23 green, and 24-31 yellow.
+
+Selecting a Cog shows its tire tracks from the last 200 ticks. Tracks use the
+original straight and corner sprites and fade with simulation time. Pausing
+preserves them, and replay seeking restores them from visual snapshots.

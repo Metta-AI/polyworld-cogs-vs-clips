@@ -14,23 +14,31 @@ proc testRules() =
   ## Exercises independent rule transitions with directly arranged fixtures.
   var world = initWorld(42)
   doAssert world.stations.len <= MaxStations
-  var walls = 0
-  for tile in world.tiles:
-    if tile.wall:
-      inc walls
-  doAssert walls == 1397
-  doAssert world.stations[0].kind == Hub
-  doAssert world.stations[0].tile == tileAt(43, 43)
-  doAssert world.cogs[0].tile == tileAt(43, 40)
+  doAssert Width == 120 and Height == 120 and CogCount == 32
+  var counts: array[Owner, int]
+  for cog in world.cogs:
+    inc counts[cog.team]
+  for team in Teams:
+    doAssert counts[team] == TeamSize
+    doAssert world.banks[team] == [24'i32, 24, 24, 24]
+    doAssert world.hearts[team] == 5
+    doAssert world.stations[ord(team) - 1].tile == team.home
+  for station in world.stations:
+    doAssert station.kind != Ship
+  var gear = -1
+  for i, station in world.stations:
+    if station.kind == Gear and station.owner == Red and station.role == Miner:
+      gear = i
+  doAssert gear >= 0
   let otherSeed = initWorld(43)
   doAssert world.tiles == otherSeed.tiles
   doAssert world.stateHash == initWorld(42).stateHash
   doAssert world.stateHash != initWorld(43).stateHash
-  world.useStation(0, 1)
+  world.useStation(0, gear)
   doAssert world.cogs[0].role == Miner
-  doAssert world.bank == [23'i32, 23, 21, 23]
-  world.useStation(0, 1)
-  doAssert world.bank == [23'i32, 23, 21, 23]
+  doAssert world.banks[Red] == [23'i32, 23, 21, 23]
+  world.useStation(0, gear)
+  doAssert world.banks[Red] == [23'i32, 23, 21, 23]
   var extractor = -1
   for i, station in world.stations:
     if station.kind == Extractor:
@@ -39,29 +47,29 @@ proc testRules() =
   let element = world.stations[extractor].element
   world.useStation(0, extractor)
   doAssert world.cogs[0].cargo[element] == 10
-  doAssert world.stations[extractor].stock == 190
-  let bankBeforeDeposit = world.bank[element]
+  doAssert world.stations[extractor].stock == 90
+  let bankBeforeDeposit = world.banks[Red][element]
   world.useStation(0, 0)
   doAssert world.cogs[0].carried == 0
-  doAssert world.bank[element] == bankBeforeDeposit + 10
+  doAssert world.banks[Red][element] == bankBeforeDeposit + 10
   world.useStation(0, 0)
-  doAssert world.cogs[0].hearts == 1 and world.hearts == 4
-  world.hearts = 0
-  let before = world.bank
+  doAssert world.cogs[0].hearts == 1 and world.hearts[Red] == 4
+  world.hearts[Red] = 0
+  let before = world.banks[Red]
   world.useStation(0, 0)
   for element in Element:
-    doAssert world.bank[element] == before[element] - HeartCost
+    doAssert world.banks[Red][element] == before[element] - HeartCost
   world.cogs[0].role = Aligner
   for i, station in world.stations:
-    if station.kind == Junction and world.linked(station.tile, Cogs):
+    if station.kind == Junction and world.linked(station.tile, Red):
       world.useStation(0, i)
-      doAssert world.stations[i].owner == Cogs
-      world.stations[i].owner = Clips
+      doAssert world.stations[i].owner == Red
+      world.stations[i].owner = Blue
       world.cogs[0].role = Scrambler
       world.useStation(0, i)
       doAssert world.stations[i].owner == Neutral
       break
-  world.cogs[0].tile = tileAt(44, 45)
+  world.cogs[0].tile = tileAt(30, 31)
   for i in 0 ..< 5:
     world.tick(default(Actions))
   doAssert world.cogs[0].hp == world.cogs[0].role.maxHp
@@ -126,36 +134,32 @@ proc testReplay() =
   except CvcError:
     rejected = true
   doAssert rejected
-  echo "Replay score: ", live.world.score
+  echo "Replay score: ", live.world.scores
 
 proc testTerritory() =
-  ## Checks ties, disconnection, independent Clips lanes, and score totals.
+  ## Checks ties, disconnection, independent team scores, and match end.
   var world = initWorld(1)
   world.stations.setLen(0)
   world.stations.add Station(
-    kind: Junction, tile: tileAt(30, 40), owner: Cogs
+    kind: Junction, tile: tileAt(30, 40), owner: Red
   )
   world.stations.add Station(
-    kind: Junction, tile: tileAt(40, 40), owner: Clips
+    kind: Junction, tile: tileAt(40, 40), owner: Blue
   )
   doAssert world.territory(tileAt(35, 40)) == Neutral
-  doAssert world.territory(tileAt(31, 40)) == Cogs
+  doAssert world.territory(tileAt(31, 40)) == Red
   world.reconnect()
   doAssert world.stations[0].owner == Neutral
   doAssert world.stations[1].owner == Neutral
   world = initWorld(2)
-  world.tick = ClipsStart
-  world.spread()
-  var count = 0
-  for station in world.stations:
-    if station.kind == Junction and station.owner == Clips:
-      inc count
-      doAssert station.lane in 1 .. 4
-  doAssert count == 4
-  let score = world.clipsScore
-  world.tick = ClipsStart + 1
+  world.stations.setLen(0)
+  for i, team in Teams:
+    for j in 0 .. i:
+      world.stations.add Station(kind: Junction,
+        tile: tileAt(int32(10 + i * 25), int32(10 + j)), owner: team)
   world.tick(default(Actions))
-  doAssert world.clipsScore == score + 4
+  for i, team in Teams:
+    doAssert world.scores[team] == int64(i + 1)
   world.tick = MaxTicks
   let hash = world.stateHash
   world.tick(default(Actions))
@@ -183,7 +187,7 @@ block:
   var world = initWorld(42)
   for i in 0 ..< world.stations.len:
     if world.stations[i].kind == Junction:
-      world.stations[i].owner = Cogs
+      world.stations[i].owner = Red
   world.reconnect()
   let
     before = world.stateHash
@@ -193,15 +197,48 @@ block:
   doAssert links.len > 0
   doAssert links.len <= MaxStations * 50
   doAssert world.pipes() == links
-  doAssert ground.edges[tileAt(0, 0)] == 49
-  doAssert ground.edges[tileAt(44, 44)] == 50
-  doAssert ground.edges[tileAt(1, 1)] != 50
+  for tile in 0 ..< TileCount:
+    if world.tiles[tile].wall:
+      doAssert ground.edges[tile] == 49
   doAssert world.terrain() == ground
   doAssert ground.splats.len <= TileCount div 25
   for link in links:
     doAssert link.tile in 0 ..< TileCount
     doAssert not world.tiles[link.tile].wall
-  world.tiles[tileAt(45, 44)].wall = true
-  let broken = world.terrain()
-  doAssert broken.edges[tileAt(45, 44)] == 49
-  doAssert broken.edges[tileAt(44, 44)] != ground.edges[tileAt(44, 44)]
+
+block:
+  var world = initWorld(1)
+  world.tick = 5
+  world.cogs[0].feedback = Blocked
+  let start = world.cogs[0].tile
+  for i, action in [North, East, South, West]:
+    world.cogs[i + 1].tile = start.neighbor(action)
+  let policies = newBots()
+  doAssert policies.decide(world)[0] == Rest
+
+echo "Surrounded baseline bots wait instead of making blind blocked moves."
+
+block:
+  var world = initWorld(1)
+  world.cogs[0].cargo[Carbon] = 4
+  let banks = world.banks
+  world.useStation(0, 1)
+  doAssert world.banks == banks
+  doAssert world.cogs[0].cargo[Carbon] == 4
+  world.useStation(0, 0)
+  doAssert world.banks[Red][Carbon] == banks[Red][Carbon] + 4
+  for team in [Blue, Green, Gold]:
+    doAssert world.banks[team] == banks[team]
+  for team in Teams:
+    let slot = (ord(team) - 1) * TeamSize
+    world.cogs[slot].tile = team.home.neighbor(North)
+    world.cogs[slot].hp = 20
+  world.tick(default(Actions))
+  for team in Teams:
+    doAssert world.cogs[(ord(team) - 1) * TeamSize].hp == 100
+  let policies = newBots("act(self(8))")
+  let actions = policies.decide(world)
+  for i, action in actions:
+    doAssert ord(action) == ord(world.cogs[i].team)
+
+echo "Four teams isolate banks, heal their own Cogs, and expose team identity."

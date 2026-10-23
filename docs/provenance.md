@@ -43,3 +43,9 @@ walls, objects, and spawn locations. Gameplay version 2 records this change.
 The pixel font is `pf_tempesta_five_compressed.ttf` from the same MettaScope
 asset directory. `docs/reference/assets.json` records all copied asset hashes.
 No generated replacement artwork is used.
+
+FourScore uses the same reference revision's `FourScoreMission` and
+`FourScoreVariant`, retained under `docs/reference`. The frozen map was exported
+with `FourScoreMission().make_env().game.map_builder`, setting its seed to 1,
+then `MapGen(builder).build().grid`. Removing the five-cell outer border gives
+`data/maps/fourscore.txt`. Team spawns are encoded as 0-3 in corner order.

@@ -1,12 +1,12 @@
 import
   polyworld/[tapes, hashes],
-  sims
+  sims, profiles
 
 const
-  ReplayGame* = "cogs_vs_clips"
+  ReplayGame* = "four_score"
   TapeVersion* = 1'u16
   ContentHash* = uint64(hashy(
-    staticRead("common.nim") & staticRead("maps.nim") & staticRead("../../data/maps/machina1.txt") & staticRead("sims.nim")
+    staticRead("common.nim") & staticRead("maps.nim") & staticRead("../../data/maps/fourscore.txt") & staticRead("sims.nim")
   ))
   CheckpointPeriod* = 500
 
@@ -80,7 +80,7 @@ proc fromReplay*(tape: Replay): Session =
   result.tape = tape
   result.playback = true
 
-proc advance*(session: Session, actions: Actions = default(Actions)) =
+proc advance*(session: Session, actions: Actions = default(Actions)) {.measure.} =
   ## Advances live actions or recorded actions and checks the resulting hash.
   if session.error.len > 0 or session.world.tick >= MaxTicks:
     return

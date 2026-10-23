@@ -1,72 +1,57 @@
 import
-  std/[os, strutils],
-  cvc/[sims, replays, bots]
+  std/os,
+  cvc/[sims, replays, bots, options, profiles]
 
 when not defined(headless):
   import cvc/clients
 
 proc main() =
   ## Runs a headless match or launches the shared rich client.
-  var
-    seed = 1'i32
-    recordPath = ""
-    replayPath = ""
-    policy = BaselineSource
-    headless = false
-    i = 1
-  while i <= paramCount():
-    let argument = paramStr(i)
-    if argument == "--headless":
-      headless = true
-    elif argument in ["--seed", "--record", "--replay", "--bot"]:
-      inc i
-      if i > paramCount():
-        fail("missing value for " & argument)
-      let value = paramStr(i)
-      case argument
-      of "--seed":
-        try:
-          let parsed = parseBiggestInt(value)
-          if parsed < int32.low or parsed > int32.high:
-            fail("seed must fit a signed 32-bit integer")
-          seed = int32(parsed)
-        except ValueError:
-          fail("seed must be an integer")
-      of "--record": recordPath = value
-      of "--replay": replayPath = value
-      of "--bot":
-        try:
-          policy = readFile(value)
-        except IOError as error:
-          fail("cannot read policy: " & error.msg)
-      else: discard
-    elif argument == "--help":
-      echo "cvc [--seed N] [--bot FILE] [--record FILE] [--replay FILE]"
-      echo "    [--headless]"
-      return
-    else:
-      fail("unknown argument: " & argument)
-    inc i
+  let settings = parseOptions(commandLineParams())
+  if settings.help:
+    echo "cvc [--bots:FILE:COUNT ...] [--seed:N] [--record:FILE]"
+    echo "    [--replay:FILE] [--play:true|false] [--speed:N] [--headless]"
+    echo "--bot is an alias for --bots. Bot counts must total 32."
+    echo "Values also accept --flag VALUE and --flag=VALUE."
+    return
+  let
+    recordPath = settings.recordPath
+    replayPath = settings.replayPath
+    seed = settings.seed
+    sources = settings.sources(BaselineSource)
+  var headless = settings.headless
   let session =
     if replayPath.len > 0: load(replayPath) else: newSession(seed)
   when defined(headless):
     headless = true
   if headless:
-    let policies = if session.playback: nil else: newBots(policy)
+    let policies = if session.playback: nil else: newBots(sources)
     let duration =
       if session.playback: int32(session.tape.hashes.len) else: MaxTicks
+    when CvcTracePath.len > 0:
+      defer:
+        finishCapture(CvcTracePath)
     while session.world.tick < duration:
+      when CvcTracePath.len > 0:
+        if session.world.tick == CvcTraceWarmup:
+          startCapture()
       if session.playback:
         session.advance()
       else:
         session.advance(policies.decide(session.world))
-    echo "tick=", session.world.tick, " score=", session.world.score,
-      " clips=", session.world.clipsScore, " hash=", session.world.stateHash
+      when CvcTracePath.len > 0:
+        if session.world.tick == CvcTraceWarmup + CvcTraceFrames:
+          finishCapture(CvcTracePath)
+    var scores: array[TeamCount, int64]
+    for i, team in Teams:
+      scores[i] = session.world.scores[team]
+    echo "tick=", session.world.tick, " scores=", scores,
+      " hash=", session.world.stateHash
     if recordPath.len > 0:
       session.save(recordPath)
   else:
     when not defined(headless):
-      runClient(session, policy, recordPath)
+      runClient(session, sources, recordPath, settings.paused, settings.speed)
 
 try:
   main()

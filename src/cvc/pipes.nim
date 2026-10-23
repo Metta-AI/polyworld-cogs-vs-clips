@@ -53,12 +53,55 @@ type
     worldCommands: seq[PipeTileSpriteCommand]
     miniCommands: seq[PipeMiniPipCommand]
 
+type
+  PipeSnapshot* = object
+    networks: Table[PipeNetworkKey, PipeNetworkState]
+    blocked: HashSet[int64]
+    junctions: array[Owner, seq[PipeJunction]]
+    settled: array[Owner, bool]
+    step: int
+
 var
   pipeNetworks: Table[PipeNetworkKey, PipeNetworkState]
   lastPipeNetworkStep: int = -1
   pipeRenderCacheByNetwork: Table[PipeNetworkKey, PipeRenderNetworkCache]
   pipeRenderCacheOrder: seq[PipeNetworkKey]
   pipeRenderCachedStep: int = -1
+  cachedBlocked: HashSet[int64]
+  cachedJunctions: array[Owner, seq[PipeJunction]]
+  settled: array[Owner, bool]
+
+when defined(testPipes):
+  var disablePipeCache*: bool
+
+proc copyNetworks(
+  networks: Table[PipeNetworkKey, PipeNetworkState]
+): Table[PipeNetworkKey, PipeNetworkState] =
+  ## Copies mutable network references so cached snapshots remain independent.
+  for key, network in networks:
+    result[key] = PipeNetworkState(
+      edges: network.edges,
+      nodePosById: network.nodePosById
+    )
+
+proc capturePipes*(): PipeSnapshot =
+  ## Captures routing history and settled-input caches without GPU resources.
+  PipeSnapshot(
+    networks: copyNetworks(pipeNetworks),
+    blocked: cachedBlocked,
+    junctions: cachedJunctions,
+    settled: settled,
+    step: lastPipeNetworkStep
+  )
+
+proc restorePipes*(snapshot: PipeSnapshot) =
+  ## Restores independent routing state and invalidates derived draw commands.
+  pipeNetworks = copyNetworks(snapshot.networks)
+  cachedBlocked = snapshot.blocked
+  cachedJunctions = snapshot.junctions
+  settled = snapshot.settled
+  lastPipeNetworkStep = snapshot.step
+  pipeRenderCachedStep = -1
 
 proc pipeEdgeKey(aId: int, bId: int): int64 =
   ## Build a stable key for an undirected pipe edge.
@@ -376,13 +419,21 @@ proc isValidPipePath(path: seq[IVec2], blocked: HashSet[int64], allowed: HashSet
 
 proc resetPipegridState*() =
   ## Clears presentation networks when starting or seeking a live simulation.
+  cachedBlocked.clear()
+  for team in Owner:
+    cachedJunctions[team].setLen(0)
+    settled[team] = false
   pipeNetworks.clear()
   pipeRenderCacheByNetwork.clear()
   pipeRenderCacheOrder.setLen(0)
   lastPipeNetworkStep = -1
   pipeRenderCachedStep = -1
 
-proc updatePipeNetwork(networkKey: PipeNetworkKey, junctions: seq[PipeJunction], blocked: HashSet[int64]) =
+proc updatePipeNetwork(
+  networkKey: PipeNetworkKey,
+  junctions: seq[PipeJunction],
+  blocked: HashSet[int64]
+) {.measure.} =
   ## Incrementally update one team's pipe network.
   let state = pipeNetworks.mgetOrPut(
     networkKey,
@@ -666,7 +717,7 @@ proc updatePipeNetwork(networkKey: PipeNetworkKey, junctions: seq[PipeJunction],
   for nodeId in staleNodeIds:
     state.nodePosById.del(nodeId)
 
-proc updatePipegridState*(world: World) =
+proc updatePipegridState*(world: World) {.measure.} =
   ## Reads live station ownership and obstacles without any replay histories.
   var
     junctionsByTeam = initTable[int, seq[PipeJunction]]()
@@ -688,13 +739,40 @@ proc updatePipegridState*(world: World) =
       range: (if station.kind == common.Hub: HubRadius else: TerritoryRadius).float32,
       isHub: station.kind in {common.Hub, Ship}
     ))
-  for team in [Cogs, Clips]:
-    updatePipeNetwork(ord(team), junctionsByTeam.getOrDefault(ord(team), @[]),
-      blockedTiles)
-  lastPipeNetworkStep = int(world.tick)
-  pipeRenderCachedStep = -1
+  let obstaclesChanged = blockedTiles != cachedBlocked
+  var changed = false
+  for team in Teams:
+    let junctions = junctionsByTeam.getOrDefault(ord(team), @[])
+    var reuse = settled[team] and not obstaclesChanged and
+      junctions == cachedJunctions[team]
+    when defined(testPipes):
+      if disablePipeCache:
+        reuse = false
+    if reuse:
+      continue
+    let previousEdges =
+      if ord(team) in pipeNetworks:
+        pipeNetworks[ord(team)].edges
+      else:
+        @[]
+    updatePipeNetwork(ord(team), junctions, blockedTiles)
+    settled[team] = previousEdges == pipeNetworks[ord(team)].edges
+    changed = changed or not settled[team] or
+      junctions != cachedJunctions[team]
+    cachedJunctions[team] = junctions
+  cachedBlocked = blockedTiles
+  if changed or lastPipeNetworkStep < 0:
+    lastPipeNetworkStep = int(world.tick)
+    pipeRenderCachedStep = -1
 
-proc ensurePipegridRenderCache() =
+when defined(testPipes):
+  proc pipeSnapshot*(): string =
+    ## Serializes ordered pipe geometry for cached/reference comparisons.
+    for team in Teams:
+      if ord(team) in pipeNetworks:
+        result.add($pipeNetworks[ord(team)].edges)
+
+proc ensurePipegridRenderCache() {.measure.} =
   ## Build per-network draw commands when the pipe state changes.
   if pipeRenderCachedStep == lastPipeNetworkStep:
     return

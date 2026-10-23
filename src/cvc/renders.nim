@@ -1,7 +1,8 @@
 import
   std/[algorithm, strutils],
   silky, vmath, chroma,
-  sims, colors, grounds, tilemaps, pixelators, pipes, shaderquads, starfields
+  sims, colors, grounds, tilemaps, pixelators, pipes, shaderquads, starfields,
+  scrubs, tracks
 
 const
   Roles* = ["agent", "miner", "aligner", "scrambler", "scout"]
@@ -10,13 +11,14 @@ const
 type
   Renderer* = ref object
     px, mini: Pixelator
-    zones: array[2, TileMap]
+    zones: array[TeamCount, TileMap]
     owners: seq[Owner]
     selected: int
     tick: int32
     terrainSeed: int32
     fogs: array[2, TileMap]
-    explored: array[CogCount, array[TileCount, bool]]
+    explored: Exploration
+    tracks: Tracks
     gridQuad: ShaderQuad
 
 proc stationSprite*(station: Station): string =
@@ -29,21 +31,25 @@ proc stationSprite*(station: Station): string =
   of Extractor: ($station.element).toLowerAscii & "_extractor"
   of Gear: Roles[ord(station.role)]
 
-proc observe*(renderer: Renderer, world: World) =
+proc observe*(renderer: Renderer, world: World) {.measure.} =
   ## Accumulates bounded exploration from live ticks, never replay snapshots.
+  renderer.tracks.observeTracks(world)
   updatePipegridState(world)
-  for i, cog in world.cogs:
-    for dy in -ViewRadius .. ViewRadius:
-      for dx in -ViewRadius .. ViewRadius:
-        let tile = tileAt(cog.tile.x + dx, cog.tile.y + dy)
-        if tile >= 0 and world.visible(i, tile):
-          renderer.explored[i][tile] = true
+  renderer.explored.observeExploration(world)
 
 proc reset*(renderer: Renderer, world: World) =
   ## Clears presentation history before reconstructing recorded input.
   resetPipegridState()
   renderer.explored = default(typeof(renderer.explored))
+  renderer.tracks = default(Tracks)
   renderer.observe(world)
+
+proc restore*(renderer: Renderer, point: ScrubPoint) =
+  ## Restores fog and pipe history from a seek checkpoint.
+  renderer.explored = point.explored
+  renderer.tracks = point.tracks
+  restorePipes(point.pipes)
+  renderer.owners.setLen(0)
 
 proc newRenderer*(sk: Silky, world: World): Renderer =
   ## Initializes copied MettaScope GPU renderers from the live world.
@@ -51,7 +57,7 @@ proc newRenderer*(sk: Silky, world: World): Renderer =
   initGrounds(world, sk)
   result.px = newPixelator(sk)
   result.mini = newPixelator(sk)
-  for i in 0 ..< 2:
+  for i in 0 ..< TeamCount:
     result.zones[i] = newTileMap(Width, Height, 64, "data/aoe7x8.png")
     for tile in 0 ..< TileCount:
       result.zones[i].indexData[tile] = 49
@@ -62,7 +68,7 @@ proc newRenderer*(sk: Silky, world: World): Renderer =
     result.fogs[i].setupGPU()
   result.reset(world)
 
-proc refresh*(renderer: Renderer, world: World, inspected: int) =
+proc refresh*(renderer: Renderer, world: World, inspected: int) {.measure.} =
   ## Rebuilds original AoE tile maps when ownership or selection changes.
   var changed = renderer.owners.len != world.stations.len or
     renderer.selected != inspected
@@ -91,7 +97,7 @@ proc refresh*(renderer: Renderer, world: World, inspected: int) =
   const Offsets = [(-1'i32, -1'i32), (0'i32, -1'i32), (1'i32, -1'i32),
     (1'i32, 0'i32), (1'i32, 1'i32), (0'i32, 1'i32),
     (-1'i32, 1'i32), (-1'i32, 0'i32)]
-  for i, team in [Cogs, Clips]:
+  for i, team in Teams:
     for tile in 0'i32 ..< TileCount:
       var index = 49
       if coverage[tile] == team:
@@ -105,7 +111,7 @@ proc refresh*(renderer: Renderer, world: World, inspected: int) =
     renderer.zones[i].updateGPU()
 
 proc drawFog(renderer: Renderer, world: World, selected: int,
-    mvp: Mat4, historical: bool) =
+    mvp: Mat4, historical: bool) {.measure.} =
   ## Uses the original fog edge atlas over bounded live visibility data.
   let layer = renderer.fogs[ord(historical)]
   var visible: array[TileCount, bool]
@@ -137,7 +143,7 @@ proc drawWorld*(renderer: Renderer, world: World,
     previous: array[CogCount, int32], fraction: float32,
     selected, inspected: int, canvas: IVec2, area: Vec4,
     center: Vec2, zoom: float32, miniature = false,
-    grid = false, vision = false, fog = false) =
+    grid = false, vision = false, fog = false) {.measure.} =
   ## Executes MettaScope terrain, AoE, pipe, and masked sprite passes.
   grounds.canvasSize = canvas
   renderer.refresh(world, inspected)
@@ -155,7 +161,7 @@ proc drawWorld*(renderer: Renderer, world: World,
   drawStarfield(canvas, area, center, world.tick)
   grounds.drawTerrain(mvp, renderer.px, renderer.mini)
   grounds.drawMaskedSplatComposite(mvp, renderer.px)
-  for i in 0 ..< 2:
+  for i in 0 ..< TeamCount:
     renderer.zones[i].draw(mvp, 2'f, 1.5'f, getTeamColor(i + 1).color)
   if miniature:
     drawMinimapPipePips(renderer.mini)
@@ -173,12 +179,24 @@ proc drawWorld*(renderer: Renderer, world: World,
         else: rgbx(255, 255, 255, 255))
     for i, cog in world.cogs:
       renderer.mini.drawSprite("minimap/agent",
-        ivec2(cog.tile.x, cog.tile.y) * 16, getTeamColor(ord(Cogs)))
+        ivec2(cog.tile.x, cog.tile.y) * 16, getTeamColor(ord(cog.team)))
       if i == selected:
         renderer.mini.drawSprite("minimap/selection",
           ivec2(cog.tile.x, cog.tile.y) * 16)
     renderer.mini.flush(mvp * scale(vec3(1'f / 16, 1'f / 16, 1)))
   else:
+    if selected >= 0:
+      for i in 0 ..< renderer.tracks.counts[selected]:
+        let
+          track = renderer.tracks.marks[selected][i]
+          age = world.tick - track.tick
+        if age >= 0 and age < TrackLifetime:
+          let alpha = uint8(255 * (TrackLifetime - age) div TrackLifetime)
+          renderer.px.drawSprite(
+            track.sprite(),
+            ivec2(track.tile.x, track.tile.y) * 128,
+            rgbx(255, 255, 255, alpha)
+          )
     drawPipegrids(renderer.px)
     var objects: seq[tuple[y: float32, kind, id: int, position: Vec2]]
     for i, station in world.stations:
@@ -207,7 +225,7 @@ proc drawWorld*(renderer: Renderer, world: World,
           cog = world.cogs[item.id]
           name = "agents/" & Roles[ord(cog.role)] & "." &
             Directions[ord(cog.direction)]
-        renderer.px.drawSprite(name, pos, getTeamColor(ord(Cogs)),
+        renderer.px.drawSprite(name, pos, getTeamColor(ord(cog.team)),
           name & ".mask")
         for bar, values in [(cog.hp, cog.role.maxHp),
           (cog.energy, cog.role.maxEnergy)]:
@@ -222,7 +240,7 @@ proc drawWorld*(renderer: Renderer, world: World,
               renderer.px.drawSprite(sprite & "Bg", point)
               if pip < values[0] * 10 div max(1'i32, values[1]):
                 renderer.px.drawSprite(sprite, point,
-                  if bar == 0: getTeamColor(ord(Cogs)) else: Yellow)
+                  if bar == 0: getTeamColor(ord(cog.team)) else: Yellow)
         if grid:
           let
             text = "COG " & $(item.id + 1)
@@ -256,7 +274,7 @@ proc drawWorld*(renderer: Renderer, world: World,
   glDisable(GL_SCISSOR_TEST)
 
 proc drawProfile*(renderer: Renderer, canvas: IVec2,
-    position: Vec2, role: Role) =
+    position: Vec2, role: Role, team: Owner) =
   ## Draws the selected portrait with the original selective tint shader.
   let
     name = "profiles/" & Roles[ord(role)]
@@ -266,5 +284,5 @@ proc drawProfile*(renderer: Renderer, canvas: IVec2,
   glEnable(GL_BLEND)
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
   renderer.px.drawSprite(name, (size / 2).ivec2,
-    getTeamColor(ord(Cogs)), name & ".mask")
+    getTeamColor(ord(team)), name & ".mask")
   renderer.px.flush(matrix)

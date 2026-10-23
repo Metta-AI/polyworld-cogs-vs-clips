@@ -1,12 +1,14 @@
 import polyworld/rngs
 
 const
-  Width* = 88
-  Height* = 88
+  Width* = 120
+  Height* = 120
   TileCount* = Width * Height
-  CogCount* = 8
+  TeamCount* = 4
+  TeamSize* = 8
+  CogCount* = TeamCount * TeamSize
   MaxTicks* = 10_000'i32
-  MaxStations* = 400
+  MaxStations* = 800
   TickRate* = 20
   HeartCost* = 7'i32
   HeartLimit* = 10'i32
@@ -18,10 +20,8 @@ const
   HubRadius* = 20'i32
   AlignRadius* = 15'i32
   HubAlignRadius* = 25'i32
-  ClipsStart* = 100'i32
-  ClipsPeriod* = 200'i32
   ViewRadius* = 6'i32
-  GameVersion* = 2'u16
+  GameVersion* = 3'u16
 
 type
   CvcError* = object of CatchableError
@@ -30,7 +30,7 @@ type
   Role* = enum
     Ungeared, Miner, Aligner, Scrambler, Scout
   Owner* = enum
-    Neutral, Cogs, Clips
+    Neutral, Red, Blue, Green, Gold
   Action* = enum
     Rest, North, East, South, West
   StationKind* = enum
@@ -51,6 +51,7 @@ type
     stock*: int32
     lane*: int8
   Cog* = object
+    team*: Owner
     tile*: int32
     direction*: Action
     role*: Role
@@ -66,13 +67,15 @@ type
     tiles*: array[TileCount, Tile]
     stations*: seq[Station]
     cogs*: array[CogCount, Cog]
-    bank*: array[Element, int32]
-    hearts*: int32
-    score*: int64
-    clipsScore*: int64
+    banks*: array[Owner, array[Element, int32]]
+    hearts*: array[Owner, int32]
+    scores*: array[Owner, int64]
   Actions* = array[CogCount, Action]
 
 const
+  Teams* = [Red, Blue, Green, Gold]
+  Hubs* = [29 + 29 * Width, 89 + 29 * Width,
+    29 + 89 * Width, 89 + 89 * Width]
   GearCosts*: array[Role, array[Element, int32]] = [
     [0'i32, 0, 0, 0], [1'i32, 1, 3, 1], [3'i32, 1, 1, 1],
     [1'i32, 3, 1, 1], [1'i32, 1, 1, 3]
@@ -137,3 +140,9 @@ proc visible*(world: World, slot: int, tile: int32): bool =
   slot in 0 ..< CogCount and tile in 0 ..< TileCount and
     abs(world.cogs[slot].tile.x - tile.x) <= ViewRadius and
     abs(world.cogs[slot].tile.y - tile.y) <= ViewRadius
+
+proc home*(team: Owner): int32 =
+  ## Returns the fixed corner hub for a playable team.
+  if team == Neutral:
+    return -1
+  int32(Hubs[ord(team) - 1])

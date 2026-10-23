@@ -19,51 +19,51 @@ proc addStation*(world: var World, station: Station) =
     if tile >= 0:
       world.tiles[tile].wall = false
 
-const Arena* = staticRead("../../data/maps/machina1.txt")
+const Arena* = staticRead("../../data/maps/fourscore.txt")
 
 proc generate*(seed: int32): World =
-  ## Loads the original fixed Machina-1 arena into flat simulation state.
+  ## Loads the original fixed FourScore arena into flat simulation state.
   result.seed = seed
   result.rng = initRng(seed)
   var
-    slot = 0
+    slots: array[TeamCount, int]
     stations: seq[Station]
   for tile in 0 ..< TileCount:
     result.tiles[tile].station = -1
     result.tiles[tile].wall = Arena[tile + tile div Width] == '#'
   for tile in 0 ..< TileCount:
     let symbol = Arena[tile + tile div Width]
+    let team = Teams[(tile mod Width div (Width div 2)) +
+      2 * (tile div Width div (Height div 2))]
     var station = Station(tile: int32(tile))
     case symbol
     of 'h':
       station.kind = Hub
-      station.owner = Cogs
+      station.owner = team
     of 'a', 'b', 'm', 's':
       station.kind = Gear
-      station.owner = Cogs
+      station.owner = team
       station.role = case symbol
         of 'a': Aligner
         of 'b': Scrambler
         of 'm': Miner
         else: Scout
-    of '1' .. '4':
-      station.kind = Ship
-      station.owner = Clips
-      station.lane = int8(ord(symbol) - ord('0'))
     of 'j':
       station.kind = Junction
     of 'C', 'O', 'G', 'S':
       station.kind = Extractor
-      station.stock = 200
+      station.stock = 100
       station.element = case symbol
         of 'C': Carbon
         of 'O': Oxygen
         of 'G': Germanium
         else: Silicon
-    of '@':
-      result.cogs[slot] = Cog(tile: int32(tile), hp: 50,
+    of '0' .. '3':
+      let group = ord(symbol) - ord('0')
+      let slot = group * TeamSize + slots[group]
+      result.cogs[slot] = Cog(team: Teams[group], tile: int32(tile), hp: 50,
         energy: 20, direction: South)
-      inc slot
+      inc slots[group]
       continue
     else:
       continue
@@ -83,7 +83,8 @@ proc generate*(seed: int32): World =
   for station in stations:
     result.tiles[station.tile].station = int16(result.stations.len)
     result.stations.add(station)
-  doAssert slot == CogCount
-  for element in Element:
-    result.bank[element] = CogCount * 3
-  result.hearts = 5
+  for team in Teams:
+    doAssert slots[ord(team) - 1] == TeamSize
+    for element in Element:
+      result.banks[team][element] = TeamSize * 3
+    result.hearts[team] = 5

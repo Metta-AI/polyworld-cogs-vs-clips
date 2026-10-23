@@ -189,7 +189,7 @@ proc resetTerrainCaches*() =
   splatCompositePass = nil
   splats.setLen(0)
 
-proc drawTerrain*(mvp: Mat4, px: var Pixelator, pxMini: var Pixelator) =
+proc drawTerrain*(mvp: Mat4, px: var Pixelator, pxMini: var Pixelator) {.measure.} =
   ## Draws the original terrain tile map.
   if terrainMap == nil:
     terrainMap = generateTerrainMap(DataDir / "terrain/blob7x8.png")
@@ -361,7 +361,7 @@ proc drawComposite*(sc: SplatComposite, mvp: Mat4, mapSize: Vec2) =
   glBindVertexArray(0)
   glUseProgram(0)
 
-proc drawMaskedSplatComposite*(mvp: Mat4, px: Pixelator) =
+proc drawMaskedSplatComposite*(mvp: Mat4, px: Pixelator) {.measure.} =
   ## Runs the original mask, decal, and composite passes.
   if splatCompositePass == nil:
     splatCompositePass = newSplatComposite()
