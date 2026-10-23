@@ -51,6 +51,11 @@ for invalid in [False, True]:
                 assert result['failed_policy_index'] == 3
                 assert not (directory / 'results.json').exists()
             else:
+                manifest = json.loads(Path(
+                    'coworld/coworld_manifest_template.json').read_text())
+                schema = manifest['game']['results_schema']
+                assert result.keys() <= schema['properties'].keys()
+                assert set(schema['required']) <= result.keys()
                 assert result['ticks'] == 10000 and len(result['scores']) == 32
                 assert (directory / 'match.replay').stat().st_size > 0
                 for i in range(32):

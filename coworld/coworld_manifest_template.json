@@ -91,6 +91,20 @@
         },
         "outcome": {
           "type": "string"
+        },
+        "banked_gold": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {
+            "type": "integer"
+          }
+        },
+        "returned": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {
+            "type": "boolean"
+          }
         }
       }
     },
