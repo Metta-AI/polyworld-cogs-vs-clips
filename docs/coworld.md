@@ -27,7 +27,7 @@ Nim 2.2.10, and Emscripten:
 nim check -d:headless -d:coworld src/cvc.nim
 nim c -d:release -d:headless -d:coworld -o:out/cvc-coworld src/cvc.nim
 python3 tests/test_hosted.py
-coworld build --project coworld --version 0.1.0
+coworld build --project coworld --version VERSION
 coworld certify coworld/dist/coworld_manifest.json --no-open-report --timeout-seconds 1800
 coworld upload-coworld coworld/dist/coworld_manifest.json --wait-certification
 ```
@@ -36,3 +36,21 @@ Build and upload outputs are ignored by Git. The build hook recreates the
 viewer bundle and includes the unchanged `players/base.bas` baseline.
 The local adapter test checks full-length idle episodes, private PRINT
 output, health, completion artifacts, and seat-specific compilation failure.
+
+## Published release
+
+On 2026-10-23, **Cogs vs Clips PW 0.1.1** became public, canonical, and
+certified on Softmax. CoWorld ID:
+`cow_93ddca57-3036-4253-9675-a97c2621a275`.
+
+All 10 hosted certification checks and all five hosted smoke episodes passed.
+The exact receipt is [coworld-release.json](coworld-release.json).
+[Watch a verified hosted replay](https://softmax.com/observatory/v2/episode-requests/ereq_0bb817e8-8b42-4ea8-b840-bada6704a77e/watch).
+
+The 0.1.1 viewer uses compiled Emscripten callbacks to comply with the hosting
+Content Security Policy. The browser entry point applies the same script
+policy locally, so string-evaluation regressions are caught before upload.
+The release reuses the 0.1.0 server image and baseline files. That server's
+10,000-tick replay verified on native macOS with final hash `3548051309`.
+The 0.1.1 hosted replay was also visually checked with the original graphics,
+playback controls, and the loading overlay dismissed.

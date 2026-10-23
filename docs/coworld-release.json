@@ -1,0 +1,85 @@
+{
+  "id": "cow_93ddca57-3036-4253-9675-a97c2621a275",
+  "name": "Cogs vs Clips PW",
+  "version": "0.1.1",
+  "canonical": true,
+  "certification": {
+    "coworld_id": "cow_93ddca57-3036-4253-9675-a97c2621a275",
+    "state": "certified",
+    "certified": true,
+    "contract_version": "main-cbec9cd24272",
+    "certification_job_id": "bdb7e6d6-8fb0-405b-9a31-479f01068cfb",
+    "failed_step": null,
+    "failure": null,
+    "transcript_summary": [
+      {
+        "id": "matriculate",
+        "status": "pass"
+      },
+      {
+        "id": "source-resolves",
+        "status": "pass"
+      },
+      {
+        "id": "images-reachable",
+        "status": "pass"
+      },
+      {
+        "id": "fixture-conforms",
+        "status": "pass"
+      },
+      {
+        "id": "smoke-episode",
+        "status": "pass"
+      },
+      {
+        "id": "results-conform",
+        "status": "pass"
+      },
+      {
+        "id": "replay-present",
+        "status": "pass"
+      },
+      {
+        "id": "replay-loadable",
+        "status": "pass"
+      },
+      {
+        "id": "players-run",
+        "status": "pass"
+      },
+      {
+        "id": "supporting-roles",
+        "status": "pass"
+      }
+    ],
+    "completed_at": "2026-10-23T22:58:38.569703Z"
+  },
+  "smoke_episodes": [
+    {
+      "id": "ereq_0bb817e8-8b42-4ea8-b840-bada6704a77e",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "id": "ereq_0ecf2d4c-3ad7-4f76-bd23-9f177ba64981",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "id": "ereq_38735468-8b35-49fa-b597-b259b64aec18",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "id": "ereq_74b40bde-93f8-4176-b019-0278bec66c39",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "id": "ereq_c53212b9-d13e-461b-915b-e0dc05cce4ba",
+      "status": "completed",
+      "error": null
+    }
+  ]
+}
