@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cogs / Clips</title>
+<style>
+html,body{margin:0;width:100%;height:100%;background:#0c141a;color:#dfeee8;font:14px system-ui;overflow:hidden}
+canvas{display:block;width:100%;height:100%;outline:none}
+#loading{position:absolute;inset:0;display:grid;place-items:center;background:#0c141a;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+<div id="loading">Loading Cogs / Clips...</div>
+<script>
+const canvas=document.getElementById('canvas');
+canvas.width=innerWidth;canvas.height=innerHeight;
+const query=new URLSearchParams(location.search);
+var Module={canvas,
+ arguments:['--seed',query.get('seed')||'1'],
+ print:console.log,printErr:console.error,
+ onRuntimeInitialized(){document.getElementById('loading').remove();canvas.focus()},
+ onAbort(error){document.getElementById('loading').textContent=String(error)}
+};
+// Windy owns canvas sizing and device-pixel-ratio changes.
+</script>
+<script src="cvc.js"></script>
+</body>
+</html>
