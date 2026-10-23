@@ -37,14 +37,32 @@ viewer bundle and includes the unchanged `players/base.bas` baseline.
 The local adapter test checks full-length idle episodes, private PRINT
 output, health, completion artifacts, and seat-specific compilation failure.
 
-## Published release
+## Current release
+
+On 2026-10-23, **Cogs vs Clips PW 0.1.2** became public, canonical, and
+certified on Softmax. CoWorld ID:
+`cow_c88ad5c1-c84a-4258-bd17-9a6a4083e075`.
+
+The server image and browser viewer both include the exact integer distance
+lookup and batched territory calculation from commit `11afcd3`. All 10 hosted
+certification checks and all five hosted smoke episodes passed. The receipt
+is [coworld-release.json](coworld-release.json).
+[Watch a hosted replay](https://softmax.com/observatory/v2/episode-requests/ereq_04d0ddcc-71d8-4ac3-ae22-05b42674d46f/watch).
+
+Local simulation-only benchmarks measured 0.116 seconds per 10,000 ticks,
+versus 0.291 seconds for C++ without observations, about 2.5 times faster.
+See [simulation-performance.md](simulation-performance.md) for methods,
+limitations, and deterministic replay verification. This is not a measurement
+of hosted end-to-end bot match runtime.
+
+## Previous release
 
 On 2026-10-23, **Cogs vs Clips PW 0.1.1** became public, canonical, and
 certified on Softmax. CoWorld ID:
 `cow_93ddca57-3036-4253-9675-a97c2621a275`.
 
 All 10 hosted certification checks and all five hosted smoke episodes passed.
-The exact receipt is [coworld-release.json](coworld-release.json).
+The previous receipt is retained in Git history.
 [Watch a verified hosted replay](https://softmax.com/observatory/v2/episode-requests/ereq_0bb817e8-8b42-4ea8-b840-bada6704a77e/watch).
 
 The 0.1.1 viewer uses compiled Emscripten callbacks to comply with the hosting

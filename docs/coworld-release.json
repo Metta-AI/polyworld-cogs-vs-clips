@@ -1,14 +1,14 @@
 {
-  "id": "cow_93ddca57-3036-4253-9675-a97c2621a275",
+  "id": "cow_c88ad5c1-c84a-4258-bd17-9a6a4083e075",
   "name": "Cogs vs Clips PW",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "canonical": true,
   "certification": {
-    "coworld_id": "cow_93ddca57-3036-4253-9675-a97c2621a275",
+    "coworld_id": "cow_c88ad5c1-c84a-4258-bd17-9a6a4083e075",
     "state": "certified",
     "certified": true,
     "contract_version": "main-cbec9cd24272",
-    "certification_job_id": "bdb7e6d6-8fb0-405b-9a31-479f01068cfb",
+    "certification_job_id": "922da8f8-9e61-469b-9cff-7cfc874617ef",
     "failed_step": null,
     "failure": null,
     "transcript_summary": [
@@ -53,31 +53,31 @@
         "status": "pass"
       }
     ],
-    "completed_at": "2026-10-23T22:58:38.569703Z"
+    "completed_at": "2026-10-23T23:19:39.678188Z"
   },
   "smoke_episodes": [
     {
-      "id": "ereq_0bb817e8-8b42-4ea8-b840-bada6704a77e",
+      "id": "ereq_04d0ddcc-71d8-4ac3-ae22-05b42674d46f",
       "status": "completed",
       "error": null
     },
     {
-      "id": "ereq_0ecf2d4c-3ad7-4f76-bd23-9f177ba64981",
+      "id": "ereq_13751f4e-68fe-4e01-b990-575214e1c99f",
       "status": "completed",
       "error": null
     },
     {
-      "id": "ereq_38735468-8b35-49fa-b597-b259b64aec18",
+      "id": "ereq_65b6379a-6ddd-491f-bd75-5c0319a0ac9b",
       "status": "completed",
       "error": null
     },
     {
-      "id": "ereq_74b40bde-93f8-4176-b019-0278bec66c39",
+      "id": "ereq_b9816ee3-fe3b-4ce9-a7dd-a70ef155e880",
       "status": "completed",
       "error": null
     },
     {
-      "id": "ereq_c53212b9-d13e-461b-915b-e0dc05cce4ba",
+      "id": "ereq_f7de4653-c819-40f8-ae7c-ea9e253cd010",
       "status": "completed",
       "error": null
     }
