@@ -14,6 +14,16 @@ proc testRules() =
   ## Exercises independent rule transitions with directly arranged fixtures.
   var world = initWorld(42)
   doAssert world.stations.len <= MaxStations
+  var walls = 0
+  for tile in world.tiles:
+    if tile.wall:
+      inc walls
+  doAssert walls == 1397
+  doAssert world.stations[0].kind == Hub
+  doAssert world.stations[0].tile == tileAt(43, 43)
+  doAssert world.cogs[0].tile == tileAt(43, 40)
+  let otherSeed = initWorld(43)
+  doAssert world.tiles == otherSeed.tiles
   doAssert world.stateHash == initWorld(42).stateHash
   doAssert world.stateHash != initWorld(43).stateHash
   world.useStation(0, 1)
@@ -30,9 +40,10 @@ proc testRules() =
   world.useStation(0, extractor)
   doAssert world.cogs[0].cargo[element] == 10
   doAssert world.stations[extractor].stock == 190
+  let bankBeforeDeposit = world.bank[element]
   world.useStation(0, 0)
   doAssert world.cogs[0].carried == 0
-  doAssert world.bank[element] == 23 + 10
+  doAssert world.bank[element] == bankBeforeDeposit + 10
   world.useStation(0, 0)
   doAssert world.cogs[0].hearts == 1 and world.hearts == 4
   world.hearts = 0

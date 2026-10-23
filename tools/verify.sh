@@ -4,8 +4,8 @@ cd "$(dirname "$0")/.."
 mkdir -p out
 nim check src/cvc.nim
 nim check tests/tests.nim
-nim r -d:release tests/tests.nim
-nim r -d:release tests/signatures.nim
+nim r -d:release --nimcache:out/cache-tests tests/tests.nim
+nim r -d:release --nimcache:out/cache-signatures tests/signatures.nim
 nim c -d:release -d:headless -d:emscripten --threads:off \
   --nimcache:out/cache-conformance \
   --passL:"--preload-file out/seed-1.replay@native.replay" \

@@ -1,22 +1,15 @@
 import
   std/[monotimes, times, strutils, math],
-  silky, vmath, chroma,
-  sims, replays, bots, terrains
+  silky, vmath, chroma, pixie,
+  sims, replays, bots, renders, colors
 
 const
   Background = rgbx(12, 20, 26, 255)
   Ink = rgbx(237, 216, 130, 255)
-  Muted = rgbx(174, 183, 168, 255)
-  Mint = rgbx(92, 224, 176, 255)
-  Coral = rgbx(241, 114, 100, 255)
   RoleNames: array[Role, string] = [
     "Cog", "Miner", "Aligner", "Scrambler", "Scout"
   ]
-  RoleSprites: array[Role, string] = [
-    "agent", "miner", "aligner", "scrambler", "scout"
-  ]
-  DirectionNames: array[Action, string] = ["s", "n", "e", "s", "w"]
-  Speeds = [1.0, 2.0, 5.0, 10.0]
+  Speeds = [1.0, 5.0, 10.0, 50.0, 100.0, 1000.0]
 
 type
   Client = ref object
@@ -25,6 +18,7 @@ type
     window: Window
     sk: Silky
     paused: bool
+    live: bool
     speed: int
     selected: int
     inspected: int
@@ -36,10 +30,8 @@ type
     accumulator: float64
     lastTime: MonoTime
     previous: array[CogCount, int32]
-    ground: Terrain
-    pipes: seq[tuple[tile: int32, sprite: string, owner: Owner]]
-    territory: array[TileCount, Owner]
-    owners: seq[Owner]
+    renderer: Renderer
+    grid, vision, fog, miniature, repeating, dragging: bool
     message: string
     recordPath: string
 
@@ -61,7 +53,7 @@ proc label(client: Client, value: string, x, y: float32,
     color = Ink, title = false) =
   ## Draws text using the bundled atlas font.
   discard client.sk.drawText(
-    if title: "Title" else: "Default",
+    "pixelated",
     value, vec2(x, y), color
   )
 
@@ -78,19 +70,6 @@ proc hit(client: Client, x, y, width, height: float32): bool =
   let mouse = client.mouse()
   mouse.x >= x and mouse.y >= y and mouse.x < x + width and
     mouse.y < y + height
-
-proc button(client: Client, value: string, x, y, width: float32,
-    active = false): bool =
-  ## Draws a compact button and returns its click edge.
-  let hover = client.hit(x, y, width, 32)
-  client.sk.draw9Patch(
-    if active: "theme/button.down.9patch"
-    elif hover: "theme/button.hover.9patch"
-    else: "theme/button.9patch",
-    8, vec2(x, y), vec2(width, 32)
-  )
-  client.label(value, x + 10, y + 6, if active: Mint else: Ink)
-  hover and client.window.buttonPressed[MouseLeft]
 
 proc sprite(client: Client, name: string, position: Vec2, size: float32,
     tint = Ink) =
@@ -119,68 +98,25 @@ proc viewport(client: Client): Vec2 =
   ## Uses the entire window for the world beneath the themed HUD.
   client.size
 
-proc screen(client: Client, tile: int32): Vec2 =
-  ## Converts a simulation tile center into client screen coordinates.
-  client.size / 2 +
-    (vec2(tile.x.float32 + 0.5, tile.y.float32 + 0.5) -
-    client.center) * client.zoom
-
-proc worldSprite(client: Client, name: string, tile: int32,
-    tint = rgbx(255, 255, 255, 255)) =
-  ## Preserves MettaScope's original 128-pixel world scale and proportions.
-  let
-    entry = client.sk.atlas.entries[name]
-    size = vec2(entry.width.float32, entry.height.float32) *
-      (client.zoom / 128)
-    position = client.screen(tile) - size / 2
-  if position.x + size.x < 0 or position.y + size.y < 0 or
-    position.x > client.size.x or position.y > client.size.y:
-      return
-  client.image(name, position, size, tint)
-
-proc groundSlice(client: Client, name: string, tile: int32,
-    column, row: int) =
-  ## Samples one 128-pixel cell from the original terrain sheets.
-  let
-    entry = client.sk.atlas.entries[name]
-    position = client.screen(tile) - vec2(client.zoom / 2)
-  client.sk.drawQuad(
-    position, vec2(client.zoom + 0.02'f),
-    vec2(float32(entry.x + column * 128), float32(entry.y + row * 128)),
-    vec2(128), rgbx(255, 255, 255, 255)
-  )
-
-proc refreshTerritory(client: Client) =
-  ## Rebuilds the presentation overlay only when ownership changes.
-  var changed = client.owners.len != client.session.world.stations.len
-  if not changed:
-    for i, station in client.session.world.stations:
-      if client.owners[i] != station.owner:
-        changed = true
-        break
-  if changed:
-    client.owners.setLen(client.session.world.stations.len)
-    for i, station in client.session.world.stations:
-      client.owners[i] = station.owner
-    for tile in 0 ..< TileCount:
-      client.territory[tile] = client.session.world.territory(int32(tile))
-    client.pipes = client.session.world.pipes()
-
 proc step(client: Client) =
   ## Advances one lockstep frame, optionally replacing one policy action.
   for i, cog in client.session.world.cogs:
     client.previous[i] = cog.tile
+  if client.live and client.session.playback and
+    client.session.world.tick == int32(client.session.tape.hashes.len):
+      client.session.playback = false
   if client.session.playback:
     client.session.advance()
   else:
     var actions = client.policies.decide(client.session.world)
-    if client.takeover:
+    if client.takeover and client.selected >= 0:
       actions[client.selected] = Rest
       for pair in [(KeyW, North), (KeyD, East), (KeyS, South), (KeyA, West),
         (KeyUp, North), (KeyRight, East), (KeyDown, South), (KeyLeft, West)]:
           if client.window.buttonDown[pair[0]]:
             actions[client.selected] = pair[1]
     client.session.advance(actions)
+  client.renderer.observe(client.session.world)
 
 proc saveReplay(client: Client) =
   ## Saves locally or downloads the current action tape in a browser.
@@ -191,262 +127,230 @@ proc saveReplay(client: Client) =
     download(path.cstring)
   client.message = "Saved " & path
 
-proc drawMap(client: Client) =
-  ## Draws territory tiles, stations, interpolated Cogs, and action feedback.
+proc seek(client: Client, target: int32) =
+  ## Reconstructs the live world and presentation from recorded lockstep input.
+  let destination = clamp(target, 0'i32, int32(client.session.tape.hashes.len))
+  client.session = fromReplay(client.session.tape)
+  client.renderer.reset(client.session.world)
+  while client.session.world.tick < destination:
+    client.session.advance()
+    client.renderer.observe(client.session.world)
+  for i, cog in client.session.world.cogs:
+    client.previous[i] = cog.tile
+  client.paused = true
+  client.takeover = false
+
+proc iconButton(client: Client, pos: Vec2, name: string,
+    active = false): bool =
+  ## Uses the original 48-pixel toggle artwork and hit region.
+  let hover = client.hit(pos.x, pos.y, 48, 48)
+  if active or hover:
+    client.sk.drawImage(
+      if active: "ui/button_main.down" else: "ui/button_main.hover",
+      pos - vec2(16))
+  client.sprite(name, pos, 48, rgbx(255, 255, 255, 255))
+  hover and client.window.buttonReleased[MouseLeft]
+
+proc transport(client: Client, start: Vec2, index: int,
+    icon: string, active = false): bool =
+  ## Copies the original transport button geometry and pressed treatment.
   let
-    area = client.viewport()
-    size = client.zoom
-    world = client.session.world
-  client.refreshTerritory()
-  client.image("starfield/starfield", vec2(0), area)
-  client.image("starfield/clouds", vec2(0), area, rgbx(110, 110, 110, 110))
-  for tile in 0'i32 ..< TileCount:
-    let position = client.screen(tile)
-    if position.x < -size or position.x > area.x + size or
-      position.y < -size or position.y > area.y + size:
-        continue
-    client.groundSlice("terrain/repeating.sand", tile,
-      int(tile.x mod 8), int(tile.y mod 8))
-  for splat in client.ground.splats:
-    client.worldSprite("terrain/splat" & $splat.variant, splat.tile,
-      rgbx(100, 100, 100, 100))
-  for station in world.stations:
-    let stamp =
-      case station.kind
-      of Hub: "terrain/stamp.hub"
-      of Junction: "terrain/stamp.junction"
-      of Extractor: "terrain/stamp." & ($station.element).toLowerAscii
-      of Ship: "objects/ship.shadow"
-      of Gear: ""
-    if stamp.len > 0:
-      client.worldSprite(stamp, station.tile)
-  # The inverse mask overlays cliffs after decals, clipping all ground layers.
-  for tile in 0'i32 ..< TileCount:
-    let position = client.screen(tile)
-    if position.x < -size or position.x > area.x + size or
-      position.y < -size or position.y > area.y + size:
-        continue
-    let edge = int(client.ground.edges[tile])
-    client.groundSlice("terrain/cliffs", tile, edge mod 7, edge div 7)
-    if not world.tiles[tile].wall and client.territory[tile] != Neutral:
-      let color =
-        if client.territory[tile] == Cogs: rgbx(8, 35, 23, 40)
-        else: rgbx(45, 8, 8, 48)
-      client.sk.drawRect(position - vec2(size / 2), vec2(size), color)
-  for pipe in client.pipes:
-    client.worldSprite(pipe.sprite, pipe.tile,
-      if pipe.owner == Cogs: rgbx(80, 165, 130, 180)
-      else: rgbx(170, 90, 70, 180))
-  for i, station in world.stations:
-    if station.kind == Extractor and station.stock == 0:
-      continue
-    let position = client.screen(station.tile)
-    if position.x < -size or position.x > area.x + size or
-      position.y < -size or position.y > area.y + size:
-        continue
-    var name: string
-    case station.kind
-    of Hub: name = "hub"
-    of Junction:
-      name = if station.owner == Neutral: "junction" else: "junction.working"
-    of Ship: name = "ship"
-    of Extractor: name = ($station.element).toLowerAscii & "_extractor"
-    of Gear: name = ($station.role).toLowerAscii
-    let tint =
-      if station.owner == Clips: rgbx(255, 180, 175, 255)
-      else: rgbx(255, 255, 255, 255)
-    client.worldSprite("objects/" & name, station.tile, tint)
-    if i == client.inspected:
-      client.sk.drawRect(position + vec2(-size, size), vec2(size * 2, 2), Mint)
-  let fraction =
-    if client.paused: 1.0'f
-    else: float32(clamp(client.accumulator * TickRate, 0.0, 1.0))
-  for i, cog in world.cogs:
-    let
-      previous = client.screen(client.previous[i])
-      current = client.screen(cog.tile)
-      position = previous + (current - previous) * fraction
-    if i == client.selected:
-      client.sprite("selection", position - vec2(size), size * 2, Mint)
-    client.sprite(
-      "agents/" & RoleSprites[cog.role] & "." & DirectionNames[cog.direction],
-      position - vec2(size), size * 2, rgbx(255, 255, 255, 255)
-    )
-    if size >= 15:
-      client.label($(i + 1), position.x - 4, position.y - size - 13, Mint)
-    if cog.feedback in {Gathered, Deposited, Crafted, Captured, Disrupted}:
-      client.sk.drawRect(position + vec2(-size / 2, size),
-        vec2(size, 2), Mint)
+    pos = start + vec2(index.float32 * 48, 0)
+    size = client.sk.getImageSize("ui/transportButton.up")
+    hover = client.hit(pos.x, pos.y, size.x, size.y)
+    pressed = hover and client.window.buttonReleased[MouseLeft]
+    background =
+      if active or pressed: "ui/transportButton.down"
+      elif hover: "ui/transportButton.hover"
+      else: "ui/transportButton.up"
+    iconSize = client.sk.getImageSize(icon)
+  client.sk.drawImage(background, pos)
+  client.sk.drawImage(icon, pos + (size - iconSize) / 2,
+    color = if active: rgbx(128, 128, 128, 128)
+      else: rgbx(255, 255, 255, 255))
+  pressed
+
+proc cell(client: Client, pos: Vec2, value: string, width = 80'f) =
+  ## Draws the original inset resource cell and pixel-font digits.
+  client.sk.draw9Patch("ui/resource_bg", 16, pos, vec2(width, 40))
+  discard client.sk.drawText("pixelated", value, pos + vec2(8, -4),
+    Yellow, maxWidth = width - 16, maxHeight = 40,
+    clip = false, hAlign = RightAlign, vAlign = MiddleAlign)
+
+proc drawMap(client: Client, mini = false) =
+  ## Reads current simulation state through the original GPU render passes.
+  let
+    size = client.size
+    area = if mini: vec4(30, size.y - 390, 300, 300)
+      else: vec4(0, 0, size.x, size.y)
+    fraction = if client.paused: 1'f
+      else: float32(clamp(client.accumulator * TickRate, 0.0, 1.0))
+  client.renderer.drawWorld(client.session.world, client.previous,
+    fraction, client.selected, client.inspected, client.window.size,
+    area, if mini: vec2(43.5) else: client.center,
+    if mini: 300'f / 98 else: client.zoom,
+    mini or client.miniature, client.grid and not mini,
+    client.vision, client.fog)
 
 proc drawInspector(client: Client) =
-  ## Draws original metal HUD panels over the live simulation.
-  let
-    width = client.size.x
-    height = client.size.y
-    world = client.session.world
-    cog = world.cogs[client.selected]
-    compact = width < 1000
-    crewX = width - 284
-    crewY = height - (if compact: 345 else: 304)
-    detailX = width / 2 - 218
-    detailY = height - (if compact: 345 else: 304)
-  client.image("ui/panel_center", vec2(detailX, detailY), vec2(436, 247))
-  client.label("COG " & $(client.selected + 1) & " / " & RoleNames[cog.role],
-    detailX + 26, detailY + 24)
-  client.label($cog.feedback, detailX + 26, detailY + 50, Muted)
-  for i, pair in [(cog.hp, cog.role.maxHp),
-    (cog.energy, cog.role.maxEnergy)]:
-      let y = detailY + 78 + float32(i) * 29
-      client.label(if i == 0: "HP" else: "EN", detailX + 26, y)
-      client.sk.draw9Patch("theme/progressBar.body.9patch", 5,
-        vec2(detailX + 60, y + 3), vec2(132, 13))
-      client.sk.draw9Patch("theme/progressBar.progress.9patch", 5,
-        vec2(detailX + 60, y + 3),
-        vec2(max(10'f, 132 * pair[0].float32 / pair[1].float32), 13),
-        if i == 0: Mint else: Ink)
-      client.label($pair[0], detailX + 202, y)
-  client.sprite("resources/heart", vec2(detailX + 24, detailY + 140), 26)
-  client.label($cog.hearts, detailX + 55, detailY + 144)
-  client.label("Cargo " & $cog.carried, detailX + 103, detailY + 144)
-  client.sprite("profiles/" & RoleSprites[cog.role],
-    vec2(detailX + 291, detailY + 28), 116,
-    rgbx(255, 255, 255, 255))
-  if client.inspected >= 0:
-    let station = world.stations[client.inspected]
-    client.label($station.kind & " / " & $station.owner &
-      " / " & $station.stock, detailX + 26, detailY + 174, Muted)
-  if compact:
-    if client.button(if client.crew: "Cog" else: "Crew",
-      detailX + 303, detailY + 172, 96, client.crew):
-        client.crew = not client.crew
-  if not compact or client.crew:
-    client.sk.draw9Patch("hud/frame", 26,
-      vec2(if compact: detailX else: crewX, crewY), vec2(284, 210))
-    client.label("CREW", (if compact: detailX else: crewX) + 26, crewY + 22)
-    for i, member in world.cogs:
-      let
-        x = (if compact: detailX else: crewX) + 24 + float32(i mod 2) * 118
-        y = crewY + 50 + float32(i div 2) * 32
-      if client.button($(i + 1) & " " & RoleNames[member.role],
-        x, y, 113, i == client.selected):
-          client.selected = i
-          client.inspected = -1
-  if compact:
+  ## Copies the contextual center panel, reading the selected live Cog.
+  if client.selected < 0:
     return
   let
-    miniY = height - 304
-    miniPos = vec2(22, miniY + 24)
-  client.sk.draw9Patch("hud/frame", 22,
-    vec2(0, miniY), vec2(220, 218))
-  for tile in 0'i32 ..< TileCount:
-    let color =
-      if world.tiles[tile].wall: Background
-      elif client.territory[tile] == Cogs: rgbx(92, 117, 84, 255)
-      elif client.territory[tile] == Clips: rgbx(132, 86, 72, 255)
-      else: rgbx(91, 84, 70, 255)
-    client.sk.drawRect(
-      miniPos + vec2(tile.x.float32 * 2, tile.y.float32 * 2),
-      vec2(2, 2), color
-    )
-  for member in world.cogs:
-    client.sk.drawRect(
-      miniPos + vec2(member.tile.x.float32 * 2,
-        member.tile.y.float32 * 2), vec2(3, 3), Mint
-    )
-  if client.hit(miniPos.x, miniPos.y, Width * 2, Height * 2) and
-    client.window.buttonPressed[MouseLeft]:
-      client.center = (client.mouse() - miniPos) / 2
-      client.follow = false
+    cog = client.session.world.cogs[client.selected]
+    pos = vec2((client.size.x - 623) / 2, client.size.y - 373)
+  client.sk.drawImage("ui/panel_center", pos)
+  client.label("Cog " & $(client.selected + 1) & " / " &
+    RoleNames[cog.role], pos.x + 69, pos.y + 32)
+  client.label("BASIC", pos.x + 69, pos.y + 64,
+    rgbx(255, 255, 255, 255))
+  for i, pair in [(cog.hp, cog.role.maxHp),
+    (cog.energy, cog.role.maxEnergy)]:
+      let origin = pos + vec2(69, 113 + i.float32 * 32)
+      client.label(if i == 0: "HP" else: "EN",
+        origin.x, origin.y - 17)
+      let bar = origin + vec2(39, 0)
+      for edge in [vec4(0, 0, 260, 1), vec4(0, 19, 260, 1),
+        vec4(0, 0, 1, 20), vec4(259, 0, 1, 20)]:
+          client.sk.drawRect(bar + edge.xy, edge.zw, Yellow)
+      let
+        divisions = if i == 0: 10 else: 20
+        stride = 256'f / divisions.float32
+      for j in 0 ..< divisions:
+        let fill = clamp(pair[0].float32 / pair[1].float32 *
+          divisions.float32 - j.float32, 0'f, 1'f)
+        client.sk.drawRect(bar + vec2(2 + j.float32 * stride, 2),
+          vec2((stride - 1) * fill, 16), Yellow)
+  var item = 0
+  for element in Element:
+    if cog.cargo[element] <= 0:
+      continue
+    let offset = pos + vec2(59 + (item mod 3).float32 * 100,
+      183 + (item div 3).float32 * 60)
+    client.sprite("resources/" & ($element).toLowerAscii, offset, 48,
+      rgbx(255, 255, 255, 255))
+    client.label($cog.cargo[element], offset.x + 56, offset.y + 8)
+    inc item
 
 proc drawChrome(client: Client) =
-  ## Draws scores, resources, and the Poly World action-tape transport.
-  let
-    width = client.size.x
-    compact = width < 1000
-    bottom = client.size.y - (if compact: 92 else: 48)
-    world = client.session.world
-  client.sk.draw9Patch("hud/frame", 24,
-    vec2(0), vec2(218, 151))
-  client.label("COGS / CLIPS", 26, 22)
-  client.label("COGS", 26, 54, Mint)
-  client.label(formatFloat(world.score.float / MaxTicks.float,
-    ffDecimal, 2), 140, 54, Mint)
-  client.label("CLIPS", 26, 79, Coral)
-  client.label(formatFloat(world.clipsScore.float / MaxTicks.float,
-    ffDecimal, 2), 140, 79, Coral)
-  client.label("Seed " & $world.seed & "  /  " &
-    (if world.tick mod DayLength < 100: "Day" else: "Night"), 26, 111, Muted)
-  client.sk.draw9Patch("hud/frame", 24,
-    vec2(width - 284, 0), vec2(284, 127))
-  client.label("SHARED BANK", width - 258, 20)
-  for element in Element:
-    let x = width - 258 + float32(ord(element)) * 62
-    client.sprite("resources/" & ($element).toLowerAscii,
-      vec2(x, 45), 28, rgbx(255, 255, 255, 255))
-    client.label($world.bank[element], x, 81)
-  client.image("ui/barstretch", vec2(0, bottom), vec2(width, if compact: 92 else: 48))
-  if client.button(if client.paused: "Play" else: "Pause", 16, bottom + 7, 66):
-    client.paused = not client.paused
-  if client.button("Step", 86, bottom + 7, 58):
-    client.paused = true
-    client.step()
-  if client.button($int(Speeds[client.speed]) & "x", 148, bottom + 7, 48):
-    client.speed = (client.speed + 1) mod Speeds.len
-  if client.button("Follow", 200, bottom + 7, 72, client.follow):
-    client.follow = not client.follow
-  if not client.session.playback:
-    if client.button(if client.takeover: "Release" else: "Control",
-      276, bottom + 7, 82, client.takeover):
-        client.takeover = not client.takeover
-  if client.button("Save tape", 362, bottom + 7, 96):
-    client.saveReplay()
-  if not client.session.playback and
-    client.button("Watch", 462, bottom + 7, 72):
-      client.session = fromReplay(client.session.tape)
-      client.paused = true
-      client.takeover = false
-      for i, cog in client.session.world.cogs:
-        client.previous[i] = cog.tile
-  let
-    start = if compact: 16'f else: 552'f
-    trackY = bottom + (if compact: 49'f else: 7'f)
-    barWidth = max(40'f, width - start - 156)
-    duration = if client.session.playback:
-      client.session.tape.hashes.len.float32 else: MaxTicks.float32
-  client.sk.draw9Patch("theme/scrubber.track.9patch", 8,
-    vec2(start, trackY), vec2(barWidth, 32))
-  client.sk.draw9Patch("theme/button.down.9patch", 8,
-    vec2(start + (barWidth - 16) * world.tick.float32 /
-      max(1'f, duration), trackY), vec2(16, 32))
-  client.label($world.tick & " / " & $MaxTicks, width - 142, trackY + 8)
-  if client.session.playback and client.hit(start, trackY, barWidth, 32) and
-    client.window.buttonPressed[MouseLeft]:
-      try:
-        let fraction = (client.mouse.x - start) / barWidth
-        client.session.seek(int32(fraction * duration))
-        for i, cog in client.session.world.cogs:
-          client.previous[i] = cog.tile
-      except CvcError as error:
-        client.message = error.msg
-      client.paused = true
-  if client.message.len > 0:
-    client.sk.draw9Patch("theme/tooltip.9patch", 8,
-      vec2(width / 2 - 220, 12), vec2(440, 34))
-    client.label(client.message, width / 2 - 206, 21)
-
-proc overHud(client: Client): bool =
-  ## Prevents world clicks and zoom from passing through HUD panels.
+  ## Preserves MettaScope's panel layout, icons, and single metal timeline.
   let
     width = client.size.x
     height = client.size.y
-  client.hit(0, 0, 218, 151) or
-    client.hit(width - 284, 0, 284, 127) or
-    client.hit(width / 2 - 218,
-      height - (if width < 1000: 345 else: 304), 436, 247) or
-    (width >= 1000 and (
-      client.hit(0, height - 304, 220, 218) or
-      client.hit(width - 284, height - 304, 284, 210))) or
-    client.hit(0, height - (if width < 1000: 92 else: 48), width, 92)
+    world = client.session.world
+    right = vec2(width - 559, height - 373)
+    left = vec2(0, height - 422)
+  client.sk.draw9Patch("ui/panel_topleft", 55, 50, 100, 30,
+    vec2(0), vec2(364, 301))
+  client.label("Score", 90, 49)
+  client.sprite("icons/objects/junction", vec2(238, 61), 32,
+    rgbx(255, 255, 255, 255))
+  for i, owner in [Cogs, Clips]:
+    let y = 105 + i.float32 * 44
+    var count = 0
+    for station in world.stations:
+      if station.kind == Junction and station.owner == owner:
+        inc count
+    client.sk.drawRect(vec2(46, y + 12), vec2(16), getTeamColor(ord(owner)))
+    let score = if owner == Cogs: world.score else: world.clipsScore
+    client.cell(vec2(82, y), formatFloat(score.float / MaxTicks.float,
+      ffDecimal, 2), 120)
+    client.cell(vec2(214, y), $count)
+  client.sk.draw9Patch("ui/panel_topright", 55, 30, 100, 30,
+    vec2(width - 488, 0), vec2(488, 307))
+  for i, element in [Carbon, Oxygen, Germanium, Silicon]:
+    let x = width - 438 + i.float32 * 98
+    client.sprite("resources/" & ($element).toLowerAscii,
+      vec2(x + 25, 55), 48, rgbx(255, 255, 255, 255))
+    client.cell(vec2(x + 9, 111), $world.bank[element])
+    client.cell(vec2(x + 9, 155), "0")
+  client.image("ui/barstretch", vec2(589, height - 81),
+    vec2(max(0'f, width - 1147), 81))
+  client.sk.drawImage("ui/panel_bottomleft", left)
+  client.sk.drawImage("ui/panel_bottomright", right)
+  for (name, offset) in [("bar_stopRight", -8'f), ("bar_spacer", 315'f),
+    ("bar_stopLeft", 379'f)]:
+      let imageSize = client.sk.getImageSize("ui/" & name)
+      client.sk.drawImage("ui/" & name,
+        vec2(width - offset - imageSize.x, height - imageSize.y))
+  let start = vec2(59, height - 60)
+  if client.transport(start, 0, "ui/rewindToStart"):
+    client.seek(0)
+  if client.transport(start, 1, "ui/stepBack"):
+    client.seek(world.tick - 1)
+  if client.transport(start, 2,
+    if client.paused: "ui/play" else: "ui/pause", not client.paused):
+      client.paused = not client.paused
+  if client.transport(start, 3, "ui/stepForward"):
+    client.paused = true
+    client.step()
+  if client.transport(start, 4, "ui/rewindToEnd"):
+    client.seek(int32(client.session.tape.hashes.len))
+  for i, icon in ["grid", "eye", "cloud"]:
+    let active = [client.grid, client.vision, client.fog][i]
+    if client.iconButton(left + vec2(392, 94 + i.float32 * 88),
+      "ui/" & icon, active):
+        case i
+        of 0: client.grid = not client.grid
+        of 1: client.vision = not client.vision
+        else: client.fog = not client.fog
+  for i in 0 ..< Speeds.len:
+    if client.transport(right + vec2(230, 316), i,
+      if i == 0: "ui/turtle"
+      elif i == Speeds.high: "ui/rabbit"
+      else: "ui/speed", i > client.speed):
+        client.speed = i
+  if client.iconButton(right + vec2(174, 44), "ui/move", client.takeover):
+    client.takeover = not client.takeover
+  if client.iconButton(right + vec2(174, 132), "ui/queue", client.miniature):
+    client.miniature = not client.miniature
+  if client.iconButton(right + vec2(174, 220), "ui/repeat", client.repeating):
+    client.repeating = not client.repeating
+  discard client.transport(right + vec2(152, 316), 0, "ui/soundMute", true)
+  for i, name in ["default", "heart", "gear", "scrambler", "aligner",
+    "miner", "scout"]:
+      if client.iconButton(vec2(width - 262 + (i mod 3).float32 * 82,
+        height - 328 + (i div 3).float32 * 87), "vibe/" & name):
+          for j, cog in world.cogs:
+            if (i < 3 or ord(cog.role) == [0, 0, 0, 3, 2, 1, 4][i]):
+              client.selected = j
+              client.follow = true
+              break
+  let
+    trackStart = 355'f
+    trackWidth = max(1'f, width - 853)
+    duration = if client.live: MaxTicks.float32
+      else: max(1'f, client.session.tape.hashes.len.float32)
+    fraction = world.tick.float32 / duration
+    knob = vec2(trackStart + fraction * max(1'f, trackWidth - 87) - 32,
+      height - 70)
+  client.sk.drawImage("ui/timeslider", knob)
+  discard client.sk.drawText("pixelated", $world.tick, knob + vec2(0, 14),
+    Yellow, maxWidth = 151, clip = false, hAlign = CenterAlign)
+  if client.hit(trackStart - 32, height - 70, trackWidth + 64, 68) and
+    client.window.buttonPressed[MouseLeft]:
+      client.dragging = true
+  if client.dragging and client.window.buttonReleased[MouseLeft]:
+    client.dragging = false
+    client.seek(int32(clamp((client.mouse.x - trackStart) /
+      max(1'f, trackWidth - 87), 0'f, 1'f) * duration))
+  if client.message.len > 0:
+    client.label(client.message, width / 2 - 200, 12)
+
+proc overHud(client: Client): bool =
+  ## Blocks world input under the original panel silhouettes.
+  let
+    width = client.size.x
+    height = client.size.y
+  client.hit(0, 0, 350, 225) or
+    client.hit(width - 488, 0, 488, 230) or
+    client.hit(0, height - 390, 350, 390) or
+    client.hit(350, height - 328, 105, 328) or
+    client.hit(width - 300, height - 328, 300, 328) or
+    client.hit(width - 420, height - 329, 100, 329) or
+    (client.selected >= 0 and client.hit((width - 623) / 2,
+      height - 373, 623, 310)) or
+    client.hit(0, height - 81, width, 81)
 
 proc input(client: Client) =
   ## Handles camera navigation, selection, and keyboard transport.
@@ -459,10 +363,25 @@ proc input(client: Client) =
   if window.buttonPressed[KeyPeriod]:
     client.paused = true
     client.step()
+  if window.buttonPressed[KeyM]:
+    client.miniature = not client.miniature
+  if window.buttonPressed[KeyEscape]:
+    client.selected = -1
+    client.inspected = -1
+    client.follow = false
+  if window.buttonPressed[KeyF]:
+    client.follow = not client.follow
+  if window.buttonPressed[KeyF5]:
+    client.saveReplay()
+  if client.hit(30, client.size.y - 390, 300, 300) and
+    window.buttonDown[MouseLeft]:
+      client.center = vec2(43.5) +
+        (mouse - vec2(180, client.size.y - 240)) * (98'f / 300)
+      client.follow = false
   if not client.overHud():
     if window.scrollDelta.y != 0:
       client.zoom = clamp(client.zoom *
-        pow(1.0015'f, window.scrollDelta.y), 5'f, 64'f)
+        pow(1.0015'f, window.scrollDelta.y), 2'f, 128'f)
     if window.buttonDown[MouseRight]:
       client.center -= window.mouseDelta.vec2 /
         (client.zoom * client.sk.uiScale)
@@ -471,13 +390,14 @@ proc input(client: Client) =
       let position = (mouse - area / 2) /
         client.zoom + client.center
       let tile = tileAt(int32(floor(position.x)), int32(floor(position.y)))
+      client.selected = -1
       if tile >= 0:
         client.inspected = client.session.world.tiles[tile].station
         for i, cog in client.session.world.cogs:
           if cog.tile.distance2(tile) <= 2:
             client.selected = i
             client.inspected = -1
-  if client.follow:
+  if client.follow and client.selected >= 0:
     let tile = client.session.world.cogs[client.selected].tile
     client.center = vec2(tile.x.float32, tile.y.float32)
 
@@ -487,7 +407,7 @@ proc frame(client: Client) =
     now = getMonoTime()
     elapsed = min(0.1, (now - client.lastTime).inMicroseconds.float / 1_000_000)
   client.lastTime = now
-  client.sk.uiScale = client.window.contentScale
+  client.sk.uiScale = 1
   try:
     client.input()
     if not client.paused:
@@ -498,14 +418,38 @@ proc frame(client: Client) =
         client.accumulator -= 1.0 / TickRate
         inc steps
       if client.session.world.tick >= MaxTicks or
-        (client.session.playback and client.session.world.tick >=
+        (not client.live and client.session.playback and client.session.world.tick >=
         int32(client.session.tape.hashes.len)):
           client.paused = true
+          if client.repeating and client.session.tape.hashes.len > 0:
+            client.seek(0)
+            client.paused = false
     client.sk.beginUi(client.window, client.window.size)
     client.sk.clearScreen(Background)
     client.drawMap()
-    client.drawInspector()
+    client.sk.beginUi(client.window, client.window.size)
     client.drawChrome()
+    client.drawInspector()
+    client.sk.endUi()
+    if client.selected >= 0:
+      client.renderer.drawProfile(client.window.size,
+        vec2((client.size.x - 623) / 2 + 424, client.size.y - 341),
+        client.session.world.cogs[client.selected].role)
+    client.drawMap(true)
+    client.sk.beginUi(client.window, client.window.size)
+    let
+      ratio = 300'f / 98
+      origin = vec2(180, client.size.y - 240) +
+        (client.center - vec2(43.5)) * ratio
+      extent = client.size / client.zoom * ratio
+      low = max(origin - extent / 2, vec2(30, client.size.y - 390))
+      high = min(origin + extent / 2, vec2(330, client.size.y - 90))
+    if high.x > low.x and high.y > low.y:
+      for edge in [vec4(low.x, low.y, high.x - low.x, 1),
+        vec4(low.x, high.y - 1, high.x - low.x, 1),
+        vec4(low.x, low.y, 1, high.y - low.y),
+        vec4(high.x - 1, low.y, 1, high.y - low.y)]:
+          client.sk.drawRect(edge.xy, edge.zw, rgbx(255, 255, 255, 255))
     client.sk.endUi()
     client.window.swapBuffers()
   except CvcError as error:
@@ -520,17 +464,19 @@ proc runClient*(session: Session, policy, recordPath: string) =
   loadExtensions()
   let client = Client(
     session: session,
+    live: not session.playback,
     policies: newBots(policy),
     window: window,
     sk: newSilky(window, "data/atlas.png"),
     center: vec2(44, 44),
     zoom: 26,
-    ground: session.world.terrain(),
+    selected: -1,
     inspected: -1,
     lastTime: getMonoTime(),
     recordPath: recordPath
   )
-  client.sk.uiScale = window.contentScale
+  client.sk.uiScale = 1
+  client.renderer = newRenderer(client.sk, session.world)
   for i, cog in session.world.cogs:
     client.previous[i] = cog.tile
   window.onFrame = proc() =
@@ -540,10 +486,10 @@ proc runClient*(session: Session, policy, recordPath: string) =
     ## Opens a dropped action replay in read-only mode.
     try:
       client.session = loadBytes(fileData)
+      client.live = false
       client.paused = true
       client.takeover = false
-      client.owners.setLen(0)
-      client.ground = client.session.world.terrain()
+      client.renderer = newRenderer(client.sk, client.session.world)
       for i, cog in client.session.world.cogs:
         client.previous[i] = cog.tile
       client.message = "Loaded " & fileName

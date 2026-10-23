@@ -100,23 +100,23 @@ proc baseline(brain: Brain): Action =
       target = tile
       distance = candidate
   if cog.hp < 25:
-    consider(tileAt(44, 44))
+    consider(tileAt(43, 43))
   elif cog.role != desired:
     for station in brain.memory.stations:
       if station.kind == Gear and station.role == desired:
         consider(station.tile)
     if target < 0:
-      let locations = [tileAt(37, 44), tileAt(44, 37),
-        tileAt(44, 51), tileAt(51, 44)]
+      let locations = [tileAt(44, 47), tileAt(40, 47),
+        tileAt(46, 47), tileAt(42, 47)]
       consider(locations[[Miner, Aligner, Scout, Scrambler].find(desired)])
   elif cog.carried >= cog.role.capacity or
     (cog.role notin {Miner, Scout} and cog.carried > 0):
-      consider(tileAt(44, 44))
+      consider(tileAt(43, 43))
       for station in brain.memory.stations:
         if station.kind == Junction and station.owner == Cogs:
           consider(station.tile)
   elif cog.role in {Aligner, Scrambler} and cog.hearts == 0:
-    consider(tileAt(44, 44))
+    consider(tileAt(43, 43))
   elif cog.role in {Miner, Scout}:
     let wanted = Element(brain.slot mod 4)
     for station in brain.memory.stations:
@@ -130,7 +130,7 @@ proc baseline(brain: Brain): Action =
       if cog.role == Scrambler and station.owner == Clips:
         consider(station.tile)
       elif cog.role == Aligner and station.owner == Neutral:
-        var reachable = station.tile.distance2(tileAt(44, 44)) <=
+        var reachable = station.tile.distance2(tileAt(43, 43)) <=
           HubAlignRadius * HubAlignRadius
         for other in brain.memory.stations:
           if other.tile >= 0 and other.owner == Cogs and

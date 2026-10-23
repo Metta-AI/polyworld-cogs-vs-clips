@@ -18,6 +18,7 @@ const canvas=document.getElementById('canvas');
 canvas.width=innerWidth;canvas.height=innerHeight;
 const query=new URLSearchParams(location.search);
 var Module={canvas,
+ locateFile(path){return path+"?v=__BUILD_ID__"},
  arguments:['--seed',query.get('seed')||'1'],
  print:console.log,printErr:console.error,
  onRuntimeInitialized(){document.getElementById('loading').remove();canvas.focus()},
@@ -25,6 +26,6 @@ var Module={canvas,
 };
 // Windy owns canvas sizing and device-pixel-ratio changes.
 </script>
-<script src="cvc.js"></script>
+<script src="cvc.js?v=__BUILD_ID__"></script>
 </body>
 </html>

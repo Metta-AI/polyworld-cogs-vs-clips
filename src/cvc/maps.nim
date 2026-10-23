@@ -1,4 +1,5 @@
 import
+  std/algorithm,
   polyworld/rngs,
   common
 
@@ -18,67 +19,71 @@ proc addStation*(world: var World, station: Station) =
     if tile >= 0:
       world.tiles[tile].wall = false
 
+const Arena* = staticRead("../../data/maps/machina1.txt")
+
 proc generate*(seed: int32): World =
-  ## Builds the fixed-size seeded arena, compound, and corner ships.
+  ## Loads the original fixed Machina-1 arena into flat simulation state.
   result.seed = seed
   result.rng = initRng(seed)
-  for i in 0 ..< TileCount:
-    result.tiles[i].station = -1
+  var
+    slot = 0
+    stations: seq[Station]
+  for tile in 0 ..< TileCount:
+    result.tiles[tile].station = -1
+    result.tiles[tile].wall = Arena[tile + tile div Width] == '#'
+  for tile in 0 ..< TileCount:
+    let symbol = Arena[tile + tile div Width]
+    var station = Station(tile: int32(tile))
+    case symbol
+    of 'h':
+      station.kind = Hub
+      station.owner = Cogs
+    of 'a', 'b', 'm', 's':
+      station.kind = Gear
+      station.owner = Cogs
+      station.role = case symbol
+        of 'a': Aligner
+        of 'b': Scrambler
+        of 'm': Miner
+        else: Scout
+    of '1' .. '4':
+      station.kind = Ship
+      station.owner = Clips
+      station.lane = int8(ord(symbol) - ord('0'))
+    of 'j':
+      station.kind = Junction
+    of 'C', 'O', 'G', 'S':
+      station.kind = Extractor
+      station.stock = 200
+      station.element = case symbol
+        of 'C': Carbon
+        of 'O': Oxygen
+        of 'G': Germanium
+        else: Silicon
+    of '@':
+      result.cogs[slot] = Cog(tile: int32(tile), hp: 50,
+        energy: 20, direction: South)
+      inc slot
+      continue
+    else:
+      continue
+    stations.add(station)
+  stations.sort(proc(a, b: Station): int =
+    ## Keeps compound station identities stable across the fixed map port.
     let
-      x = int32(i mod Width)
-      y = int32(i div Width)
-    result.tiles[i].wall = x == 0 or y == 0 or
-      x == Width - 1 or y == Height - 1
-    result.tiles[i].biome = uint8((x div 22 + y div 22) mod 4)
-  result.addStation(Station(
-    kind: Hub, tile: tileAt(44, 44), owner: Cogs
-  ))
-  for i, role in [Miner, Aligner, Scrambler, Scout]:
-    let locations = [tileAt(37, 44), tileAt(44, 37),
-      tileAt(51, 44), tileAt(44, 51)]
-    result.addStation(Station(
-      kind: Gear, tile: locations[i], owner: Cogs, role: role
-    ))
-  for i, tile in [tileAt(2, 2), tileAt(85, 2),
-    tileAt(2, 85), tileAt(85, 85)]:
-      result.addStation(Station(
-        kind: Ship, tile: tile, owner: Clips, lane: int8(i + 1)
-      ))
-  for row in 0 ..< 9:
-    for column in 0 ..< 9:
-      let
-        x = int32(7 + column * 9) + result.rng.between(-2, 2)
-        y = int32(7 + row * 9) + result.rng.between(-2, 2)
-        tile = tileAt(x, y)
-      if tile.distance2(tileAt(44, 44)) < 81:
-        continue
-      result.addStation(Station(kind: Junction, tile: tile))
-  for element in Element:
-    for i in 0 ..< 66:
-      for attempt in 0 ..< 200:
-        let tile = tileAt(
-          result.rng.between(3, Width - 4),
-          result.rng.between(3, Height - 4)
-        )
-        if result.tiles[tile].station >= 0 or
-          tile.distance2(tileAt(44, 44)) < 100:
-            continue
-        var clear = true
-        for direction in North .. West:
-          if result.tiles[tile.neighbor(direction)].station >= 0:
-            clear = false
-        if clear:
-          result.addStation(Station(
-            kind: Extractor, tile: tile, element: element, stock: 200
-          ))
-          break
+      ranks = [0, 2, 3, 4, 1]
+      rankA = ranks[ord(a.kind)]
+      rankB = ranks[ord(b.kind)]
+    result = cmp(rankA, rankB)
+    if result == 0 and a.kind == Gear:
+      result = cmp(ord(a.role), ord(b.role))
+    if result == 0:
+      result = cmp(a.tile, b.tile)
+  )
+  for station in stations:
+    result.tiles[station.tile].station = int16(result.stations.len)
+    result.stations.add(station)
+  doAssert slot == CogCount
   for element in Element:
     result.bank[element] = CogCount * 3
   result.hearts = 5
-  for i in 0 ..< CogCount:
-    result.cogs[i] = Cog(
-      tile: tileAt(40 + int32(i), 46),
-      hp: 50,
-      energy: 20,
-      direction: South
-    )

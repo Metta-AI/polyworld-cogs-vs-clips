@@ -21,7 +21,7 @@ const
   ClipsStart* = 100'i32
   ClipsPeriod* = 200'i32
   ViewRadius* = 6'i32
-  GameVersion* = 1'u16
+  GameVersion* = 2'u16
 
 type
   CvcError* = object of CatchableError

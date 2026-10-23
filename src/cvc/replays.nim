@@ -6,7 +6,7 @@ const
   ReplayGame* = "cogs_vs_clips"
   TapeVersion* = 1'u16
   ContentHash* = uint64(hashy(
-    staticRead("common.nim") & staticRead("maps.nim") & staticRead("sims.nim")
+    staticRead("common.nim") & staticRead("maps.nim") & staticRead("../../data/maps/machina1.txt") & staticRead("sims.nim")
   ))
   CheckpointPeriod* = 500
 

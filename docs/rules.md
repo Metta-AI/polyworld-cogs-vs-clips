@@ -48,11 +48,12 @@ the ship with stable index tie breaking.
 ## Explicit adaptation choices
 
 The original configuration composition and general biome scene graph are not
-included. This implementation uses a compact seeded map recipe: a central
-compound, four corner ships, jittered connected junction spacing, and isolated
-resource placement on open terrain with boundary walls. There are no interior
-dungeons or biome-specific rules. The biome index is presentation metadata.
-This is not a seed-compatible translation of the original map generator.
+included. The arena is a fixed export of the original Machina-1 mission with
+eight agents and map seed 1. Its five-cell outer border is removed to retain
+the 88 by 88 playable area. Original interior walls, compound, spawns, ships,
+junctions, and extractors are preserved in `data/maps/machina1.txt`.
+The match seed controls the portable simulation RNG, not map geometry.
+There is no runtime Python dependency or configurable map generator.
 
 Each turn shuffles the eight seats with Poly World's portable RNG, resolves each
 movement or bump interaction, applies due Clips events, applies solar and

@@ -20,16 +20,26 @@ Open Font License are included in `reference`.
 `nim r -d:release tools/gen_atlas.nim`. There are no runtime dependencies on
 assets in the original checkout.
 
-The client terrain adjacency table follows MettaScope's
-`src/mettascope/gamemode/terrains.nim` from the same checkout. The presentation
-uses the original sand, splats, station stamps, cliff and mask sheets, pipes,
-starfield, portraits, resource icons, HUD panels, and theme textures.
-`tools/gen_atlas.nim` generates an inverse-mask cliff overlay and crops a metal
-panel frame from the original artwork. Ground and decals are drawn before this
-overlay, reproducing the masked terrain composition with the shared Silky atlas.
+The client directly ports MettaScope's Nim `pixelator`, `tilemap`, `shaderquad`,
+`starfield`, `terrains`, and `pipegrid` modules from the same checkout. Their
+standalone counterparts are `pixelators`, `tilemaps`, `shaderquads`, `starfields`,
+`grounds`, and `pipes`. The original adjacency tables, framebuffer mask passes,
+sand and decal composition, selective team masks, lamp shader, pipe routing,
+and minimap pips are retained. `clients.nim` uses the original gameplayer panel
+assets, geometry, transport buttons, pixel font, resource cells, and timeline.
 
-All presentation caches are derived from the live `World`. They do not consume
-simulation randomness or enter state hashes, action tapes, or gameplay rules.
-The map geometry remains the standalone fixed game's geometry. Rendering does
-not import MettaScope's replay loader, object-history schema, or JSON replay
-format. Poly World `ActionTape` remains the only replay format.
+Replay-object reads are replaced with the current `World`. Terrain initializes
+from the fixed map. Moving objects and counters read the current tick. Bounded
+exploration and pipe caches advance with simulation ticks and reconstruct from
+action frames on seeking. They never consume simulation randomness or enter
+state hashes. Poly World `ActionTape` remains the only replay format.
+
+The fixed arena was exported with `make_machina1_mission(8).make_env()` and
+`MapGen(config).build_for_num_agents(8)` using seed 1 at the recorded CvC
+reference revision. The five-cell outer padding is omitted. The original
+88 by 88 grid is embedded in Nim from `data/maps/machina1.txt`, including all
+walls, objects, and spawn locations. Gameplay version 2 records this change.
+
+The pixel font is `pf_tempesta_five_compressed.ttf` from the same MettaScope
+asset directory. `docs/reference/assets.json` records all copied asset hashes.
+No generated replacement artwork is used.
