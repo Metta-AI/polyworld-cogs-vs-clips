@@ -4,9 +4,20 @@ import
   sims, replays, bots, renders, colors, profiles, timings, scrubs
 
 when defined(emscripten):
-  proc runBrowserScript(script: cstring) {.
-    importc: "emscripten_run_script", header: "<emscripten.h>".}
-    ## Runs presentation notifications in the browser host.
+  {.emit: """
+#include <emscripten.h>
+EM_JS(void, cvc_notify_frame, (), {
+  if (window.cvcReplayFrame) window.cvcReplayFrame();
+});
+EM_JS(void, cvc_notify_error, (), {
+  if (window.cvcReplayError)
+    window.cvcReplayError('Replay simulation failed; see console');
+});
+""".}
+  proc notifyBrowserFrame() {.importc: "cvc_notify_frame", nodecl.}
+    ## Signals a committed frame without evaluating JavaScript strings.
+  proc notifyBrowserError() {.importc: "cvc_notify_error", nodecl.}
+    ## Reports a presentation failure through the static browser callback.
 
 const
   Background = rgbx(12, 20, 26, 255)
@@ -514,14 +525,13 @@ proc renderFrame(client: Client) {.measure.} =
     client.sk.endUi()
     client.window.swapBuffers()
     when defined(emscripten):
-      runBrowserScript("window.cvcReplayFrame && window.cvcReplayFrame()")
+      notifyBrowserFrame()
   except CvcError as error:
     client.paused = true
     client.message = error.msg
     echo error.msg
     when defined(emscripten):
-      runBrowserScript("window.cvcReplayError && " &
-        "window.cvcReplayError('Replay simulation failed; see console')")
+      notifyBrowserError()
 
 proc runClient*(session: Session, sources: array[CogCount, string],
     recordPath: string, paused = false, speed = 1'i32) =
