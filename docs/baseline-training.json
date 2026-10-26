@@ -1,0 +1,108 @@
+{
+  "training": {
+    "seconds": 600.0575742500369,
+    "agent_steps": 29052928,
+    "updates": 7093,
+    "steps_per_second": 48416.900722086364,
+    "weight_change_l2": 24.09314513161468,
+    "checkpoint": "out/train-baseline/cvc_179302464360/model_cvc_007093.pt",
+    "reward_sum": 2321.8240865347907,
+    "native_stats": {
+      "episodes": 88,
+      "ticks": 907904,
+      "score": 274968,
+      "gathered": 11406,
+      "deposited": 241,
+      "captured": 32
+    },
+    "config": {
+      "name": "pufferai",
+      "project": "ablations",
+      "seed": 42,
+      "torch_deterministic": true,
+      "cpu_offload": false,
+      "device": "cpu",
+      "optimizer": "adam",
+      "anneal_lr": false,
+      "precision": "float32",
+      "total_timesteps": 1000000000,
+      "learning_rate": 0.0003,
+      "gamma": 0.995,
+      "gae_lambda": 0.9,
+      "update_epochs": 2,
+      "clip_coef": 0.2,
+      "vf_coef": 0.5,
+      "vf_clip_coef": 0.2,
+      "max_grad_norm": 1.5,
+      "ent_coef": 0.01,
+      "adam_beta1": 0.95,
+      "adam_beta2": 0.999,
+      "adam_eps": 1e-12,
+      "data_dir": "out/train-baseline",
+      "checkpoint_interval": 10000,
+      "batch_size": 4096,
+      "minibatch_size": 512,
+      "max_minibatch_size": 512,
+      "bptt_horizon": 32,
+      "compile": false,
+      "compile_mode": "max-autotune-no-cudagraphs",
+      "compile_fullgraph": true,
+      "vtrace_rho_clip": 1.0,
+      "vtrace_c_clip": 1.0,
+      "prio_alpha": 0.8,
+      "prio_beta0": 0.2,
+      "use_rnn": false,
+      "env": "cvc"
+    },
+    "torch": "2.8.0",
+    "library_sha256": "53923b2045ba919dbf8f492f016692081d799f5b8c32bb5b98cdc604e9fc889b",
+    "source_commit": "ca8d45cb033dd4613091ebe04d14a682aae3dd16"
+  },
+  "evaluation": {
+    "seeds": [
+      1001,
+      1002,
+      1003,
+      1004
+    ],
+    "initial_self_play": {
+      "seconds": 9.180999749922194,
+      "reward_sum": 1101.8740578591824,
+      "action_counts": [
+        256171,
+        256543,
+        256017,
+        255264,
+        256005
+      ],
+      "stats": {
+        "episodes": 4,
+        "ticks": 40000,
+        "score": 135713,
+        "gathered": 1105,
+        "deposited": 176,
+        "captured": 16
+      }
+    },
+    "trained_self_play": {
+      "seconds": 8.29728433303535,
+      "reward_sum": 4.879999885335565,
+      "action_counts": [
+        416069,
+        361500,
+        320202,
+        101686,
+        80543
+      ],
+      "stats": {
+        "episodes": 4,
+        "ticks": 40000,
+        "score": 0,
+        "gathered": 488,
+        "deposited": 0,
+        "captured": 0
+      }
+    },
+    "note": "Separate self-play rollouts, not a head-to-head strength test."
+  }
+}

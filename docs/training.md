@@ -105,3 +105,41 @@ tick. Both emit identical tokens, checked in tests. Traces cover ticks 9001–91
 and stay below Fluffy's 10,000-event cap. Timed runs disable profiling and report
 three runs after warmup. The benchmark also verifies the unchanged final
 simulation hash `3548051309`.
+
+## First ten-minute baseline result
+
+The local CPU run completed on 2026-10-26:
+
+| Measurement | Result |
+| --- | ---: |
+| Training duration | 600.06 seconds |
+| Agent transitions | 29,052,928 |
+| PPO updates | 7,093 |
+| Throughput | 48,417 agent steps/second |
+| Completed full matches | 88 |
+| Simulation ticks across all matches | 907,904 |
+| Parameter change, L2 norm | 24.09 |
+
+Source revision: `ca8d45cb033dd4613091ebe04d14a682aae3dd16`.
+Checkpoint: `out/train-baseline/cvc_179302464360/model_cvc_007093.pt`.
+The state dictionary reloads successfully. Metrics and optimizer checkpoints
+remain under `out/train-baseline/`; `docs/baseline-training.json` records the
+summary, library hash, configuration and evaluation.
+
+Held-out seeds 1001–1004 each ran for 10,000 ticks after reloading the saved
+weights. Both initial and trained policies used the same sampling seed. Each
+policy controlled all teams in separate self-play matches.
+
+| Four-match total | Initial policy | Trained policy |
+| --- | ---: | ---: |
+| Official score, summed over teams | 135,713 | 0 |
+| Gather events | 1,105 | 488 |
+| Deposit events | 176 | 0 |
+| Captures | 16 | 0 |
+
+**This baseline regressed.** Finite gradients, changed weights and a valid
+checkpoint establish that training executed; they do not establish strategic
+improvement. The learned action distribution favored rest, north and east and
+did not capture junctions on these evaluation seeds. Keep this run as a baseline
+for reward/encoder experiments, not as a promoted playing policy. These four
+self-play comparisons are not a head-to-head win-rate estimate.

@@ -1,0 +1,96 @@
+{
+  "workload": {
+    "ticks": 10000,
+    "cogs": 32,
+    "seed": 1,
+    "map": [
+      120,
+      120
+    ]
+  },
+  "seconds": {
+    "cpp_simulation_observations": [
+      4.670531874988228,
+      4.634652292006649,
+      4.609946915996261
+    ],
+    "nim_reference_simulation_observations": [
+      20.583512667,
+      20.323763042,
+      20.551310125
+    ],
+    "nim_simulation_observations": [
+      0.716149,
+      0.716399625,
+      0.716443542
+    ],
+    "nim_simulation": [
+      0.110994083,
+      0.109918917,
+      0.111018041,
+      0.110647583,
+      0.108657334
+    ]
+  },
+  "trace_ms": {
+    "before": {
+      "totals": {
+        "encode": 204.73754899999923,
+        "observeReference*": 204.88395200000002
+      },
+      "calls": {
+        "encode": 3200,
+        "observeReference*": 100
+      },
+      "events": 3300
+    },
+    "padding": {
+      "totals": {
+        "prepare*": 0.054459000000000035,
+        "clearPadding": 1.7439809999999802,
+        "encode": 7.6883890000000426,
+        "observe*": 7.815747999999998
+      },
+      "calls": {
+        "prepare*": 100,
+        "clearPadding": 3200,
+        "encode": 3200,
+        "observe*": 100
+      },
+      "events": 6600
+    },
+    "after": {
+      "totals": {
+        "prepare*": 0.053917000000000034,
+        "clearPadding": 0.2791339999999939,
+        "encode": 6.266646000000007,
+        "observe*": 6.390673000000003
+      },
+      "calls": {
+        "prepare*": 100,
+        "clearPadding": 3200,
+        "encode": 3200,
+        "observe*": 100
+      },
+      "events": 6600
+    }
+  },
+  "cpp_phase_seconds": {
+    "reset": 0.009113829,
+    "events": 0.000599648,
+    "actions": 0.049711162,
+    "on_tick": 0.086616372,
+    "aoe": 0.044921015,
+    "observations": 4.336638846,
+    "rewards": 0.030424504,
+    "truncation": 0.00013856,
+    "total": 4.628096379
+  },
+  "medians": {
+    "cpp_simulation_observations": 4.634652292006649,
+    "nim_reference_simulation_observations": 20.551310125,
+    "nim_simulation_observations": 0.716399625,
+    "nim_simulation": 0.110647583
+  },
+  "cpp_speedup": 6.469367278084001
+}
