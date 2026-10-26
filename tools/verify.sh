@@ -2,6 +2,9 @@
 set -eu
 cd "$(dirname "$0")/.."
 mkdir -p out
+nim check tests/test_motions.nim
+nim check tests/test_bars.nim
+nim check tests/test_plans.nim
 nim check tests/test_territories.nim
 nim check -d:cvcSimTrace experiments/bench_steps.nim
 nim check src/cvc.nim
@@ -14,6 +17,9 @@ nim check -d:testPipes tests/test_scrubs.nim
 nim check tests/test_routes.nim
 nim check tests/tests.nim
 nim check tests/test_options.nim
+nim r -d:release tests/test_motions.nim
+nim r -d:release tests/test_bars.nim
+nim r -d:release tests/test_plans.nim
 nim r -d:release tests/test_territories.nim
 nim r -d:release --nimcache:out/cache-options tests/test_options.nim
 nim r -d:release --nimcache:out/cache-timings tests/test_timings.nim

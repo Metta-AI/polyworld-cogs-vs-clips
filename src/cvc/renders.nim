@@ -2,13 +2,14 @@ import
   std/[algorithm, strutils],
   silky, vmath, chroma,
   sims, colors, grounds, tilemaps, pixelators, pipes, shaderquads, starfields,
-  scrubs, tracks, motions, bars
+  scrubs, tracks, motions, bars, names
 
 const
   Roles* = ["agent", "miner", "aligner", "scrambler", "scout"]
 
 type
   Renderer* = ref object
+    labels*: array[CogCount, string]
     motion*: Motion
     px, mini: Pixelator
     zones: array[TeamCount, TileMap]
@@ -250,7 +251,7 @@ proc drawWorld*(renderer: Renderer, world: World,
                   elif bar == 0: getTeamColor(ord(cog.team)) else: Yellow)
         if grid:
           let
-            text = "COG " & $(item.id + 1)
+            text = cogName(item.id, world.seed) & " / " & renderer.labels[item.id]
             size = renderer.px.textSize("pixelated", text)
             base = (item.position * 128).ivec2
           renderer.px.drawText("pixelated", text,

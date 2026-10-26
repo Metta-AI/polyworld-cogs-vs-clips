@@ -1,7 +1,7 @@
 import
   std/[monotimes, times, strutils, math],
-  silky, vmath, chroma, pixie,
-  sims, replays, bots, renders, colors, profiles, timings, scrubs, motions, bars, plans
+  silky, vmath, chroma, pixie, polyworld/configs,
+  sims, replays, bots, renders, colors, profiles, timings, scrubs, motions, bars, plans, names
 
 when defined(emscripten):
   {.emit: """
@@ -52,6 +52,7 @@ type
     pendingTarget: int32
     grid, vision, fog, miniature, repeating, dragging: bool
     message: string
+    hint: string
     orders: array[CogCount, Plan]
     queueOrders: bool
     preview: seq[int32]
@@ -192,9 +193,11 @@ proc seek(client: Client, target: int32, snap = false) =
   client.takeover = false
 
 proc iconButton(client: Client, pos: Vec2, name: string,
-    active = false): bool =
+    active = false, tip = ""): bool =
   ## Uses the original 48-pixel toggle artwork and hit region.
   let hover = client.hit(pos.x, pos.y, 48, 48)
+  if hover:
+    client.hint = if tip.len > 0: tip else: controlHint(name)
   if active or hover:
     client.sk.drawImage(
       if active: "ui/button_main.down" else: "ui/button_main.hover",
@@ -203,7 +206,7 @@ proc iconButton(client: Client, pos: Vec2, name: string,
   hover and client.window.buttonReleased[MouseLeft]
 
 proc transport(client: Client, start: Vec2, index: int,
-    icon: string, active = false): bool =
+    icon: string, active = false, tip = ""): bool =
   ## Copies the original transport button geometry and pressed treatment.
   let
     pos = start + vec2(index.float32 * 48, 0)
@@ -215,6 +218,8 @@ proc transport(client: Client, start: Vec2, index: int,
       elif hover: "ui/transportButton.hover"
       else: "ui/transportButton.up"
     iconSize = client.sk.getImageSize(icon)
+  if hover:
+    client.hint = if tip.len > 0: tip else: controlHint(icon)
   client.sk.drawImage(background, pos)
   client.sk.drawImage(icon, pos + (size - iconSize) / 2,
     color = if active: rgbx(128, 128, 128, 128)
@@ -259,6 +264,8 @@ proc inventory(client: Client, pos: Vec2, amounts: array[Element, int32],
       continue
     let offset = pos + vec2(59 + (item mod 3).float32 * 100,
       top + (item div 3).float32 * 60)
+    if client.hit(offset.x, offset.y, 96, 48):
+      client.hint = name.capitalizeAscii & ": " & $amount
     client.sprite("resources/" & name, offset, 48,
       rgbx(255, 255, 255, 255))
     client.label($amount, offset.x + 50, offset.y + 8)
@@ -294,9 +301,13 @@ proc drawInspector(client: Client) =
     client.inventory(pos, amounts, hearts, 110)
     return
   let cog = world.cogs[client.selected]
-  client.label("Cog " & $(client.selected + 1) & " / " &
-    RoleNames[cog.role], pos.x + 69, pos.y + 32)
-  client.label("BASIC", pos.x + 69, pos.y + 64,
+  client.label($cog.team & " " & cogName(client.selected, world.seed),
+    pos.x + 69, pos.y + 32)
+  let policy = client.session.tape.config.players[client.selected].displayName(
+    client.selected
+  )
+  client.label((RoleNames[cog.role] & " / " & policy)[0 ..<
+    min(23, RoleNames[cog.role].len + 3 + policy.len)], pos.x + 69, pos.y + 64,
     rgbx(255, 255, 255, 255))
   for i, pair in [(cog.hp, cog.role.maxHp),
     (cog.energy, cog.role.maxEnergy)]:
@@ -397,7 +408,7 @@ proc drawChrome(client: Client) =
     if client.transport(right + vec2(230, 316), i,
       if i == 0: "ui/turtle"
       elif i == Speeds.high: "ui/rabbit"
-      else: "ui/speed", Speeds[i] > client.rate):
+      else: "ui/speed", Speeds[i] > client.rate, $Speeds[i].int & "x speed"):
         client.rate = Speeds[i]
         client.accumulator = 0
   if client.iconButton(right + vec2(174, 44), "ui/move", client.takeover):
@@ -572,6 +583,7 @@ proc renderFrame(client: Client) {.measure.} =
     elapsed = min(0.1, (now - client.lastTime).inMicroseconds.float / 1_000_000)
   client.lastTime = now
   client.sk.uiScale = 1
+  client.hint = ""
   try:
     client.input()
     if client.scrubs.points.len > 0 and not client.scrubs.complete():
@@ -630,6 +642,13 @@ proc renderFrame(client: Client) {.measure.} =
         vec4(low.x, low.y, 1, high.y - low.y),
         vec4(high.x - 1, low.y, 1, high.y - low.y)]:
           client.sk.drawRect(edge.xy, edge.zw, rgbx(255, 255, 255, 255))
+    if client.hint.len > 0:
+      let
+        width = min(client.size.x - 24, client.hint.len.float32 * 14 + 24)
+        point = vec2(clamp(client.mouse.x + 16, 8'f, client.size.x - width - 8),
+          clamp(client.mouse.y - 52, 8'f, client.size.y - 52))
+      client.sk.draw9Patch("ui/resource_bg", 16, point, vec2(width, 44))
+      client.label(client.hint, point.x + 12, point.y + 4)
     client.sk.endUi()
     client.window.swapBuffers()
     when defined(emscripten):
@@ -669,6 +688,7 @@ proc runClient*(session: Session, sources: array[CogCount, string],
     client.lastTime = getMonoTime()
   for i, cog in session.world.cogs:
     client.previous[i] = cog.tile
+    client.renderer.labels[i] = session.tape.config.players[i].displayName(i)
   when CvcTracePath.len > 0:
     var capturedFrames = 0
   defer:
@@ -709,6 +729,7 @@ proc runClient*(session: Session, sources: array[CogCount, string],
       client.dragging = false
       for i, cog in client.session.world.cogs:
         client.previous[i] = cog.tile
+        client.renderer.labels[i] = client.session.tape.config.players[i].displayName(i)
       client.message = "Loaded " & fileName
     except CvcError as error:
       client.message = error.msg

@@ -24,6 +24,14 @@ proc main() =
   var headless = settings.headless
   let session =
     if replayPath.len > 0: load(replayPath) else: newSession(seed)
+  if replayPath.len == 0:
+    for player in session.tape.config.players.mitems:
+      player.name = "base"
+    var slot = 0
+    for group in settings.groups:
+      for i in 0 ..< group.count:
+        session.tape.config.players[slot].name = group.path.extractFilename()
+        inc slot
   when defined(headless):
     headless = true
   if headless:
