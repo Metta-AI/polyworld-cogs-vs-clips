@@ -21,6 +21,8 @@ type
     world: ptr World
     slot: int
     action: Action
+    when not defined(headless):
+      target: int32 = -1
     error: string
   Bots* = ref object
     brains: array[CogCount, Brain]
@@ -97,6 +99,8 @@ when defined(cvcBfs) or defined(benchRoutes):
 
 proc route(brain: Brain, target: int32): Action {.measure.} =
   ## Finds a cardinal jump path using only this bot's remembered observations.
+  when not defined(headless):
+    brain.target = target
   when defined(benchRoutes):
     if routeProbe != nil:
       routeProbe(brain, target)
@@ -318,6 +322,8 @@ proc decide*(bots: Bots, world: var World): Actions {.measure.} =
     brain.world = addr world
     brain.remember()
     brain.action = Rest
+    when not defined(headless):
+      brain.target = -1
     if brain.error.len == 0:
       try:
         brain.runtime.restart()
@@ -337,3 +343,10 @@ proc decide*(bots: Bots, world: var World): Actions {.measure.} =
 proc policyError*(bots: Bots, slot: int): string =
   ## Reports a policy failure without affecting deterministic simulation.
   bots.brains[slot].error
+
+when not defined(headless):
+  proc policyTarget*(bots: Bots, slot: int): int32 =
+    ## Exposes the last live route target solely to the graphical client.
+    if slot < 0 or slot >= CogCount:
+      return -1
+    bots.brains[slot].target

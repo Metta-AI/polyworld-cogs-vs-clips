@@ -146,7 +146,8 @@ proc drawWorld*(renderer: Renderer, world: World,
     previous: array[CogCount, int32], fraction: float32,
     selected, inspected: int, canvas: IVec2, area: Vec4,
     center: Vec2, zoom: float32, miniature = false,
-    grid = false, vision = false, fog = false, speed = 1'f) {.measure.} =
+    grid = false, vision = false, fog = false, speed = 1'f,
+    path: seq[int32] = @[], target = -1'i32) {.measure.} =
   ## Executes MettaScope terrain, AoE, pipe, and masked sprite passes.
   grounds.canvasSize = canvas
   renderer.refresh(world, inspected)
@@ -275,6 +276,22 @@ proc drawWorld*(renderer: Renderer, world: World,
               getTeamColor(ord(station.owner)), name & ".mask")
           else:
             renderer.px.drawSprite(name, pos)
+    for tile in path:
+      renderer.px.drawSprite("agents/path", ivec2(tile.x, tile.y) * 128,
+        rgbx(255, 220, 100, 220))
+    if path.len > 0:
+      let tile = path[^1]
+      renderer.px.drawSprite("selection", ivec2(tile.x, tile.y) * 128, Yellow)
+    if target >= 0 and selected >= 0:
+      let start = world.cogs[selected].tile
+      let count = max(abs(target.x - start.x), abs(target.y - start.y))
+      for i in 1 ..< count:
+        let point = ivec2(start.x + (target.x - start.x) * i.int32 div count,
+          start.y + (target.y - start.y) * i.int32 div count)
+        renderer.px.drawSprite("agents/path", point * 128,
+          rgbx(100, 255, 100, 200))
+      renderer.px.drawSprite("selection", ivec2(target.x, target.y) * 128,
+        rgbx(100, 255, 100, 200))
     renderer.px.flush(pixels)
   if vision:
     renderer.drawFog(world, selected, mvp, false)

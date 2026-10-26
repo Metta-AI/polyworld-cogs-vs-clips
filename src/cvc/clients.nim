@@ -1,7 +1,7 @@
 import
   std/[monotimes, times, strutils, math],
   silky, vmath, chroma, pixie,
-  sims, replays, bots, renders, colors, profiles, timings, scrubs, motions, bars
+  sims, replays, bots, renders, colors, profiles, timings, scrubs, motions, bars, plans
 
 when defined(emscripten):
   {.emit: """
@@ -52,6 +52,11 @@ type
     pendingTarget: int32
     grid, vision, fog, miniature, repeating, dragging: bool
     message: string
+    orders: array[CogCount, Plan]
+    queueOrders: bool
+    preview: seq[int32]
+    previewTick, previewTile: int32
+    previewSlot: int
     recordPath: string
 
 when defined(emscripten):
@@ -129,12 +134,17 @@ proc step(client: Client) {.measure.} =
   else:
     var actions = client.policies.decide(client.session.world)
     if client.takeover and client.selected >= 0:
-      actions[client.selected] = Rest
+      actions[client.selected] = client.orders[client.selected].action(
+        client.session.world, client.selected
+      )
       for pair in [(KeyW, North), (KeyD, East), (KeyS, South), (KeyA, West),
         (KeyUp, North), (KeyRight, East), (KeyDown, South), (KeyLeft, West)]:
           if client.window.buttonDown[pair[0]]:
+            client.orders[client.selected].targets.setLen(0)
             actions[client.selected] = pair[1]
     client.session.advance(actions)
+  if client.takeover and client.selected >= 0:
+    client.orders[client.selected].arrive(client.session.world, client.selected)
   client.renderer.observe(client.session.world)
 
 proc saveReplay(client: Client) =
@@ -176,6 +186,9 @@ proc seek(client: Client, target: int32, snap = false) =
   for i, cog in client.session.world.cogs:
     client.previous[i] = cog.tile
   client.renderer.motion.reset(client.session.world)
+  client.orders = default(typeof(client.orders))
+  client.preview.setLen(0)
+  client.previewTick = -1
   client.takeover = false
 
 proc iconButton(client: Client, pos: Vec2, name: string,
@@ -228,7 +241,11 @@ proc drawMap(client: Client, mini = false) =
     area, if mini: vec2((Width.float32 - 1) / 2) else: client.center,
     if mini: 300'f / (Width + 10).float32 else: client.zoom,
     mini or client.miniature, client.grid and not mini,
-    client.vision, client.fog, client.rate.float32)
+    client.vision, client.fog, client.rate.float32,
+    if mini: @[] else: client.preview,
+    if client.live and not client.session.playback and not client.takeover:
+      client.policies.policyTarget(client.selected)
+    else: -1)
 
 proc inventory(client: Client, pos: Vec2, amounts: array[Element, int32],
     hearts: int32, top = 183'f) =
@@ -384,9 +401,12 @@ proc drawChrome(client: Client) =
         client.rate = Speeds[i]
         client.accumulator = 0
   if client.iconButton(right + vec2(174, 44), "ui/move", client.takeover):
-    client.takeover = not client.takeover
-  if client.iconButton(right + vec2(174, 132), "ui/queue", client.miniature):
-    client.miniature = not client.miniature
+    if client.live and not client.session.playback:
+      client.takeover = not client.takeover
+      client.previewTick = -1
+  if client.iconButton(right + vec2(174, 132), "ui/queue", client.queueOrders):
+    client.queueOrders = not client.queueOrders
+    client.previewTick = -1
   if client.iconButton(right + vec2(174, 220), "ui/repeat", client.repeating):
     client.repeating = not client.repeating
   discard client.transport(right + vec2(152, 316), 0, "ui/soundMute", true)
@@ -490,9 +510,13 @@ proc input(client: Client) =
       let position = (mouse - area / 2) /
         client.zoom + client.center
       let tile = tileAt(int32(floor(position.x)), int32(floor(position.y)))
-      client.selected = -1
-      client.inspected = -1
-      if tile >= 0:
+      if client.takeover and client.selected >= 0 and tile >= 0:
+        client.orders[client.selected].order(tile, client.queueOrders)
+        client.previewTick = -1
+      else:
+        client.selected = -1
+        client.inspected = -1
+      if tile >= 0 and not client.takeover:
         client.inspected = client.session.world.tiles[tile].station
         if client.inspected < 0:
           for i, station in client.session.world.stations:
@@ -506,6 +530,40 @@ proc input(client: Client) =
   if client.follow and client.selected >= 0:
     let tile = client.session.world.cogs[client.selected].tile
     client.center = vec2(tile.x.float32, tile.y.float32)
+
+proc updatePreview(client: Client) =
+  ## Rebuilds manual path previews only when their visible inputs change.
+  if not client.takeover or client.selected < 0 or client.session.playback:
+    client.preview.setLen(0)
+    client.previewTick = -1
+    return
+  let
+    world = client.session.world
+    position = (client.mouse() - client.viewport() / 2) /
+      client.zoom + client.center
+    target = if client.overHud(): -1'i32
+      else: tileAt(int32(floor(position.x)), int32(floor(position.y)))
+  if client.previewTick == world.tick and client.previewTile == target and
+    client.previewSlot == client.selected:
+      return
+  client.previewTick = world.tick
+  client.previewTile = target
+  client.previewSlot = client.selected
+  client.preview.setLen(0)
+  var start = world.cogs[client.selected].tile
+  let targets = client.orders[client.selected].targets
+  for destination in targets:
+    let route = world.path(start, destination)
+    client.preview.add(route)
+    if route.len > 0:
+      start = if world.tiles[destination].station >= 0 and route.len > 1:
+        route[^2]
+      else: destination
+  if target >= 0:
+    if not client.queueOrders:
+      client.preview.setLen(0)
+      start = world.cogs[client.selected].tile
+    client.preview.add(world.path(start, target))
 
 proc renderFrame(client: Client) {.measure.} =
   ## Runs bounded catch-up ticks and renders one independent client frame.
@@ -542,6 +600,7 @@ proc renderFrame(client: Client) {.measure.} =
     glViewport(0, 0, canvas.x, canvas.y)
     glDisable(GL_SCISSOR_TEST)
     client.sk.clearScreen(Background)
+    client.updatePreview()
     client.drawMap()
     client.sk.beginUi(client.window, client.window.size)
     client.drawChrome()
@@ -641,6 +700,9 @@ proc runClient*(session: Session, sources: array[CogCount, string],
       client.live = false
       client.paused = true
       client.takeover = false
+      client.orders = default(typeof(client.orders))
+      client.preview.setLen(0)
+      client.previewTick = -1
       client.renderer = newRenderer(client.sk, client.session.world)
       client.scrubs = beginScrubs(client.session.tape)
       client.pendingSeek = false
