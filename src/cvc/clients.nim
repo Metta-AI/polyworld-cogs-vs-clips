@@ -1,7 +1,7 @@
 import
   std/[monotimes, times, strutils, math],
   silky, vmath, chroma, pixie,
-  sims, replays, bots, renders, colors, profiles, timings, scrubs, motions
+  sims, replays, bots, renders, colors, profiles, timings, scrubs, motions, bars
 
 when defined(emscripten):
   {.emit: """
@@ -257,8 +257,16 @@ proc drawInspector(client: Client) =
       for j in 0 ..< divisions:
         let fill = clamp(pair[0].float32 / pair[1].float32 *
           divisions.float32 - j.float32, 0'f, 1'f)
+        let
+          previous = client.renderer.motion.previous[client.selected]
+          changed = changedPip(
+            pair[0],
+            if i == 0: previous.hp else: previous.energy,
+            pair[1], divisions, j
+          )
         client.sk.drawRect(bar + vec2(2 + j.float32 * stride, 2),
-          vec2((stride - 1) * fill, 16), Yellow)
+          vec2((stride - 1) * (if changed: 1'f else: fill), 16),
+          if changed: rgbx(255, 255, 255, 255) else: Yellow)
   var item = 0
   for element in Element:
     if cog.cargo[element] <= 0:

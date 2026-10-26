@@ -2,7 +2,7 @@ import
   std/[algorithm, strutils],
   silky, vmath, chroma,
   sims, colors, grounds, tilemaps, pixelators, pipes, shaderquads, starfields,
-  scrubs, tracks, motions
+  scrubs, tracks, motions, bars
 
 const
   Roles* = ["agent", "miner", "aligner", "scrambler", "scout"]
@@ -239,9 +239,16 @@ proc drawWorld*(renderer: Renderer, world: World,
               let point = base + ivec2(int32((pip - 5) * width + width div 2),
                 int32(-68 + bar * 7))
               renderer.px.drawSprite(sprite & "Bg", point)
-              if pip < values[0] * 10 div max(1'i32, values[1]):
+              let previous = renderer.motion.previous[item.id]
+              let changed = changedPip(
+                values[0],
+                if bar == 0: previous.hp else: previous.energy,
+                values[1], 10, pip
+              )
+              if changed or pip < values[0] * 10 div max(1'i32, values[1]):
                 renderer.px.drawSprite(sprite, point,
-                  if bar == 0: getTeamColor(ord(cog.team)) else: Yellow)
+                  if changed: rgbx(255, 255, 255, 255)
+                  elif bar == 0: getTeamColor(ord(cog.team)) else: Yellow)
         if grid:
           let
             text = "COG " & $(item.id + 1)
