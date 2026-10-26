@@ -230,14 +230,53 @@ proc drawMap(client: Client, mini = false) =
     mini or client.miniature, client.grid and not mini,
     client.vision, client.fog, client.rate.float32)
 
+proc inventory(client: Client, pos: Vec2, amounts: array[Element, int32],
+    hearts: int32, top = 183'f) =
+  ## Shows carried resources and hearts in the original wrapped icon layout.
+  var item = 0
+  for i in 0 .. ord(Element.high) + 1:
+    let
+      amount = if i <= ord(Element.high): amounts[Element(i)] else: hearts
+      name = if i <= ord(Element.high): ($Element(i)).toLowerAscii else: "heart"
+    if amount <= 0:
+      continue
+    let offset = pos + vec2(59 + (item mod 3).float32 * 100,
+      top + (item div 3).float32 * 60)
+    client.sprite("resources/" & name, offset, 48,
+      rgbx(255, 255, 255, 255))
+    client.label($amount, offset.x + 50, offset.y + 8)
+    inc item
+
 proc drawInspector(client: Client) =
   ## Copies the contextual center panel, reading the selected live Cog.
-  if client.selected < 0:
+  if client.selected < 0 and client.inspected < 0:
     return
   let
-    cog = client.session.world.cogs[client.selected]
+    world = client.session.world
     pos = vec2((client.size.x - 623) / 2, client.size.y - 373)
   client.sk.drawImage("ui/panel_center", pos)
+  if client.selected < 0:
+    let station = world.stations[client.inspected]
+    client.label($station.owner & " " & $station.kind, pos.x + 69, pos.y + 32)
+    var amounts: array[Element, int32]
+    var hearts = 0'i32
+    case station.kind
+    of Extractor:
+      client.label($station.element & " / " &
+        (if station.stock > 0: "Available" else: "Depleted"),
+        pos.x + 69, pos.y + 64)
+      amounts[station.element] = station.stock
+    of Hub, Junction, Ship:
+      client.label("Shared team stores", pos.x + 69, pos.y + 64)
+      if station.owner != Neutral:
+        amounts = world.banks[station.owner]
+        hearts = world.hearts[station.owner]
+    of Gear:
+      client.label(RoleNames[station.role] & " / Cost", pos.x + 69, pos.y + 64)
+      amounts = GearCosts[station.role]
+    client.inventory(pos, amounts, hearts, 110)
+    return
+  let cog = world.cogs[client.selected]
   client.label("Cog " & $(client.selected + 1) & " / " &
     RoleNames[cog.role], pos.x + 69, pos.y + 32)
   client.label("BASIC", pos.x + 69, pos.y + 64,
@@ -267,16 +306,7 @@ proc drawInspector(client: Client) =
         client.sk.drawRect(bar + vec2(2 + j.float32 * stride, 2),
           vec2((stride - 1) * (if changed: 1'f else: fill), 16),
           if changed: rgbx(255, 255, 255, 255) else: Yellow)
-  var item = 0
-  for element in Element:
-    if cog.cargo[element] <= 0:
-      continue
-    let offset = pos + vec2(59 + (item mod 3).float32 * 100,
-      183 + (item div 3).float32 * 60)
-    client.sprite("resources/" & ($element).toLowerAscii, offset, 48,
-      rgbx(255, 255, 255, 255))
-    client.label($cog.cargo[element], offset.x + 56, offset.y + 8)
-    inc item
+  client.inventory(pos, cog.cargo, cog.hearts)
 
 proc drawChrome(client: Client) =
   ## Preserves MettaScope's panel layout, icons, and single metal timeline.
@@ -416,7 +446,7 @@ proc overHud(client: Client): bool =
     client.hit(350, height - 328, 105, 328) or
     client.hit(width - 300, height - 328, 300, 328) or
     client.hit(width - 420, height - 329, 100, 329) or
-    (client.selected >= 0 and client.hit((width - 623) / 2,
+    ((client.selected >= 0 or client.inspected >= 0) and client.hit((width - 623) / 2,
       height - 373, 623, 310)) or
     client.hit(0, height - 81, width, 81)
 
@@ -461,6 +491,7 @@ proc input(client: Client) =
         client.zoom + client.center
       let tile = tileAt(int32(floor(position.x)), int32(floor(position.y)))
       client.selected = -1
+      client.inspected = -1
       if tile >= 0:
         client.inspected = client.session.world.tiles[tile].station
         for i, cog in client.session.world.cogs:
@@ -516,6 +547,10 @@ proc renderFrame(client: Client) {.measure.} =
         vec2((client.size.x - 623) / 2 + 424, client.size.y - 341),
         client.session.world.cogs[client.selected].role,
         client.session.world.cogs[client.selected].team)
+    elif client.inspected >= 0:
+      client.renderer.drawStationProfile(client.window.size,
+        vec2((client.size.x - 623) / 2 + 424, client.size.y - 341),
+        client.session.world.stations[client.inspected])
     client.drawMap(true)
     client.sk.beginUi(client.window, client.window.size)
     let

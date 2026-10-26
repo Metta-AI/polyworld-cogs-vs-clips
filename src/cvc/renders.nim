@@ -262,6 +262,8 @@ proc drawWorld*(renderer: Renderer, world: World,
         let
           station = world.stations[item.id]
           name = "objects/" & station.stationSprite()
+        if item.id == inspected:
+          renderer.px.drawSprite("selection", (item.position * 128).ivec2)
         if station.kind == Junction and station.owner != Neutral:
           renderer.px.drawSprite(name, pos,
             getTeamColor(ord(station.owner)), lamp = "objects/junction.lamp")
@@ -293,4 +295,22 @@ proc drawProfile*(renderer: Renderer, canvas: IVec2,
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
   renderer.px.drawSprite(name, (size / 2).ivec2,
     getTeamColor(ord(team)), name & ".mask")
+  renderer.px.flush(matrix)
+
+proc drawStationProfile*(renderer: Renderer, canvas: IVec2,
+    position: Vec2, station: Station) =
+  ## Draws the original building portrait when that asset exists.
+  let
+    key = if station.kind == Junction: "junction" else: station.stationSprite()
+    name = "profiles/" & key
+  if name notin renderer.px:
+    return
+  let
+    projection = ortho(0'f, canvas.x.float32, canvas.y.float32, 0'f, -1'f, 1'f)
+    size = renderer.px.spriteSize(name).vec2
+    matrix = projection * translate(vec3(position.x, position.y, 0))
+    mask = if name & ".mask" in renderer.px: name & ".mask" else: ""
+  renderer.px.drawSprite(name, (size / 2).ivec2,
+    if mask.len > 0: getTeamColor(ord(station.owner))
+    else: rgbx(255, 255, 255, 255), mask)
   renderer.px.flush(matrix)
