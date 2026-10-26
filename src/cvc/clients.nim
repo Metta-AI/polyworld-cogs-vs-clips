@@ -494,6 +494,11 @@ proc input(client: Client) =
       client.inspected = -1
       if tile >= 0:
         client.inspected = client.session.world.tiles[tile].station
+        if client.inspected < 0:
+          for i, station in client.session.world.stations:
+            if station.tile == tile:
+              client.inspected = i
+              break
         for i, cog in client.session.world.cogs:
           if cog.tile.distance2(tile) <= 2:
             client.selected = i

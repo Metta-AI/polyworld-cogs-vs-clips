@@ -203,8 +203,6 @@ proc drawWorld*(renderer: Renderer, world: World,
     drawPipegrids(renderer.px)
     var objects: seq[tuple[y: float32, kind, id: int, position: Vec2]]
     for i, station in world.stations:
-      if station.kind == Extractor and station.stock <= 0:
-        continue
       objects.add((station.tile.y.float32, 0, i,
         vec2(station.tile.x.float32, station.tile.y.float32)))
     for i, cog in world.cogs:
@@ -264,6 +262,10 @@ proc drawWorld*(renderer: Renderer, world: World,
           name = "objects/" & station.stationSprite()
         if item.id == inspected:
           renderer.px.drawSprite("selection", (item.position * 128).ivec2)
+        if station.kind == Extractor and station.stock <= 0:
+          if name & ".remnant" in renderer.px:
+            renderer.px.drawSprite(name & ".remnant", pos)
+          continue
         if station.kind == Junction and station.owner != Neutral:
           renderer.px.drawSprite(name, pos,
             getTeamColor(ord(station.owner)), lamp = "objects/junction.lamp")
