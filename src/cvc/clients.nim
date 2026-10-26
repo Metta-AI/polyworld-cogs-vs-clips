@@ -326,14 +326,20 @@ proc drawInspector(client: Client) =
           divisions.float32 - j.float32, 0'f, 1'f)
         let
           previous = client.renderer.motion.previous[client.selected]
-          changed = changedPip(
+          changed = changedSegment(
             pair[0],
             if i == 0: previous.hp else: previous.energy,
             pair[1], divisions, j
           )
         client.sk.drawRect(bar + vec2(2 + j.float32 * stride, 2),
-          vec2((stride - 1) * (if changed: 1'f else: fill), 16),
-          if changed: rgbx(255, 255, 255, 255) else: Yellow)
+          vec2((stride - 1) * fill, 16), Yellow)
+        if changed.last > changed.first:
+          client.sk.drawRect(
+            bar + vec2(2 + j.float32 * stride +
+              (stride - 1) * changed.first, 2),
+            vec2((stride - 1) * (changed.last - changed.first), 16),
+            rgbx(255, 255, 255, 255)
+          )
   client.inventory(pos, cog.cargo, cog.hearts)
 
 proc drawChrome(client: Client) =
