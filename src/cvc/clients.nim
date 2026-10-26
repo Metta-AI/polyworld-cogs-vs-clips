@@ -1,7 +1,7 @@
 import
   std/[monotimes, times, strutils, math],
   silky, vmath, chroma, pixie,
-  sims, replays, bots, renders, colors, profiles, timings, scrubs
+  sims, replays, bots, renders, colors, profiles, timings, scrubs, motions
 
 when defined(emscripten):
   {.emit: """
@@ -175,6 +175,7 @@ proc seek(client: Client, target: int32, snap = false) =
     client.renderer.observe(client.session.world)
   for i, cog in client.session.world.cogs:
     client.previous[i] = cog.tile
+  client.renderer.motion.reset(client.session.world)
   client.takeover = false
 
 proc iconButton(client: Client, pos: Vec2, name: string,
@@ -227,7 +228,7 @@ proc drawMap(client: Client, mini = false) =
     area, if mini: vec2((Width.float32 - 1) / 2) else: client.center,
     if mini: 300'f / (Width + 10).float32 else: client.zoom,
     mini or client.miniature, client.grid and not mini,
-    client.vision, client.fog)
+    client.vision, client.fog, client.rate.float32)
 
 proc drawInspector(client: Client) =
   ## Copies the contextual center panel, reading the selected live Cog.

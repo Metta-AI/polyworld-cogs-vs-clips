@@ -2,14 +2,14 @@ import
   std/[algorithm, strutils],
   silky, vmath, chroma,
   sims, colors, grounds, tilemaps, pixelators, pipes, shaderquads, starfields,
-  scrubs, tracks
+  scrubs, tracks, motions
 
 const
   Roles* = ["agent", "miner", "aligner", "scrambler", "scout"]
-  Directions = ["s", "n", "e", "s", "w"]
 
 type
   Renderer* = ref object
+    motion*: Motion
     px, mini: Pixelator
     zones: array[TeamCount, TileMap]
     owners: seq[Owner]
@@ -33,6 +33,7 @@ proc stationSprite*(station: Station): string =
 
 proc observe*(renderer: Renderer, world: World) {.measure.} =
   ## Accumulates bounded exploration from live ticks, never replay snapshots.
+  renderer.motion.observe(world)
   renderer.tracks.observeTracks(world)
   updatePipegridState(world)
   renderer.explored.observeExploration(world)
@@ -43,9 +44,11 @@ proc reset*(renderer: Renderer, world: World) =
   renderer.explored = default(typeof(renderer.explored))
   renderer.tracks = default(Tracks)
   renderer.observe(world)
+  renderer.motion.reset(world)
 
 proc restore*(renderer: Renderer, point: ScrubPoint) =
   ## Restores fog and pipe history from a seek checkpoint.
+  renderer.motion.reset(point.world)
   renderer.explored = point.explored
   renderer.tracks = point.tracks
   restorePipes(point.pipes)
@@ -143,7 +146,7 @@ proc drawWorld*(renderer: Renderer, world: World,
     previous: array[CogCount, int32], fraction: float32,
     selected, inspected: int, canvas: IVec2, area: Vec4,
     center: Vec2, zoom: float32, miniature = false,
-    grid = false, vision = false, fog = false) {.measure.} =
+    grid = false, vision = false, fog = false, speed = 1'f) {.measure.} =
   ## Executes MettaScope terrain, AoE, pipe, and masked sprite passes.
   grounds.canvasSize = canvas
   renderer.refresh(world, inspected)
@@ -206,9 +209,7 @@ proc drawWorld*(renderer: Renderer, world: World,
         vec2(station.tile.x.float32, station.tile.y.float32)))
     for i, cog in world.cogs:
       let
-        old = vec2(previous[i].x.float32, previous[i].y.float32)
-        current = vec2(cog.tile.x.float32, cog.tile.y.float32)
-        position = old + (current - old) * fraction
+        position = renderer.motion.position(i, fraction, speed)
       objects.add((position.y, 1, i, position))
     objects.sort(proc(a, b: typeof(objects[0])): int =
       ## Applies the original painter order with stable identity ties.
@@ -224,7 +225,7 @@ proc drawWorld*(renderer: Renderer, world: World,
         let
           cog = world.cogs[item.id]
           name = "agents/" & Roles[ord(cog.role)] & "." &
-            Directions[ord(cog.direction)]
+            renderer.motion.direction(item.id, fraction, speed)
         renderer.px.drawSprite(name, pos, getTeamColor(ord(cog.team)),
           name & ".mask")
         for bar, values in [(cog.hp, cog.role.maxHp),
