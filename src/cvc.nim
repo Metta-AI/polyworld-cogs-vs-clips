@@ -52,9 +52,9 @@ proc main() =
       when CvcTracePath.len > 0:
         if session.world.tick == CvcTraceWarmup + CvcTraceFrames:
           finishCapture(CvcTracePath)
-    var scores: array[TeamCount, int64]
+    var scores: array[TeamCount, float64]
     for i, team in Teams:
-      scores[i] = session.world.scores[team]
+      scores[i] = session.world.scores[team].float64 / MaxTicks.float64
     echo "tick=", session.world.tick, " scores=", scores,
       " hash=", session.world.stateHash
     if recordPath.len > 0:

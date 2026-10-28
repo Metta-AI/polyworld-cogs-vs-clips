@@ -1,5 +1,7 @@
 """Exercise CoWorld handoff, private output, failures, and lockstep replay."""
+import ast
 import json
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -20,7 +22,7 @@ for invalid in [False, True]:
     for i in range(32):
         policy = directory / f'policy-{i}'
         policy.write_text('this is invalid BASIC' if invalid and i == 3 else
-                          f'print "private-seat-{i}"\nact(0)\n')
+                          f'print "private-seat-{i}"\nact(baseline())\n')
         seats.append(dict(slot=i, file_uri=policy.as_uri(),
                           content_hash='', size_bytes=policy.stat().st_size,
                           log_uri=(directory / f'log-{i}.txt').as_uri(),
@@ -58,6 +60,17 @@ for invalid in [False, True]:
                 assert set(schema['required']) <= result.keys()
                 assert result['ticks'] == 10000 and len(result['scores']) == 32
                 assert (directory / 'match.replay').stat().st_size > 0
+                replay_output = subprocess.check_output([
+                    'out/cvc-headless', '--replay:' + str(directory / 'match.replay')
+                ], text=True)
+                team_scores = ast.literal_eval(
+                    re.search(r'scores=(\[[^\]]+\])', replay_output)[1])
+                assert max(team_scores) > 1
+                assert max(team_scores) < 1000
+                assert any(score != int(score) for score in team_scores)
+                assert result['scores'] == [
+                    score for score in team_scores for _ in range(8)]
+                assert schema['properties']['scores']['items']['type'] == 'number'
                 for i in range(32):
                     text = (directory / f'log-{i}.txt').read_text()
                     assert f'private-seat-{i}\n' in text

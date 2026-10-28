@@ -27,4 +27,4 @@ proc runHosted*() =
     ticks: session.world.tick,
     seed: options.seed,
     outcome: "time_limit"
-  ))
+  ), scoreDivisor = MaxTicks)

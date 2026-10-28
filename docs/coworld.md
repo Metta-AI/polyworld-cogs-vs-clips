@@ -26,6 +26,7 @@ Nim 2.2.10, and Emscripten:
 ```sh
 nim check -d:headless -d:coworld src/cvc.nim
 nim c -d:release -d:headless -d:coworld -o:out/cvc-coworld src/cvc.nim
+nim c -d:release -d:headless -o:out/cvc-headless src/cvc.nim
 python3 tests/test_hosted.py
 coworld build --project coworld --version VERSION
 coworld certify coworld/dist/coworld_manifest.json --no-open-report --timeout-seconds 1800
@@ -72,3 +73,12 @@ The release reuses the 0.1.0 server image and baseline files. That server's
 10,000-tick replay verified on native macOS with final hash `3548051309`.
 The 0.1.1 hosted replay was also visually checked with the original graphics,
 playback controls, and the loading overlay dismissed.
+
+## Score units
+
+The viewer, headless summary, and hosted episode results report territory
+scores divided by 10,000. For example, raw 338461 becomes 33.8461, shown as
+33.85 in the viewer. Hosted scores retain fractional precision. League
+averages can differ from the score in one replay. OpenSkill ratings are a
+separate quantity. Simulation state and replay hashes retain raw integers.
+Previously completed hosted results keep their original score units.
