@@ -1,7 +1,7 @@
 import
   std/[monotimes, times, strutils, math],
   silky, vmath, chroma, pixie, polyworld/configs,
-  sims, replays, bots, renders, colors, profiles, timings, scrubs, motions, bars, plans, names
+  sims, replays, bots, renders, colors, profiles, timings, scrubs, motions, bars, plans, names, directors
 
 when defined(emscripten):
   {.emit: """
@@ -40,6 +40,7 @@ type
     inspected: int
     takeover: bool
     follow: bool
+    director: Director
     crew: bool
     zoom: float32
     center: Vec2
@@ -147,6 +148,8 @@ proc step(client: Client) {.measure.} =
   if client.takeover and client.selected >= 0:
     client.orders[client.selected].arrive(client.session.world, client.selected)
   client.renderer.observe(client.session.world)
+  if client.director.enabled:
+    client.director.observe(client.session.world)
 
 proc saveReplay(client: Client) =
   ## Saves locally or downloads the current action tape in a browser.
@@ -187,6 +190,7 @@ proc seek(client: Client, target: int32, snap = false) =
   for i, cog in client.session.world.cogs:
     client.previous[i] = cog.tile
   client.renderer.motion.reset(client.session.world)
+  client.director.reset()
   client.orders = default(typeof(client.orders))
   client.preview.setLen(0)
   client.previewTick = -1
@@ -217,10 +221,19 @@ proc transport(client: Client, start: Vec2, index: int,
       if active or pressed: "ui/transportButton.down"
       elif hover: "ui/transportButton.hover"
       else: "ui/transportButton.up"
-    iconSize = client.sk.getImageSize(icon)
+    iconSize = if icon == "ui/director": vec2(32)
+      else: client.sk.getImageSize(icon)
   if hover:
     client.hint = if tip.len > 0: tip else: controlHint(icon)
   client.sk.drawImage(background, pos)
+  if icon == "ui/director":
+    let origin = pos + (size - iconSize) / 2
+    let tint = if active: Yellow else: rgbx(240, 240, 225, 255)
+    for box in [vec4(3, 12, 21, 15), vec4(4, 3, 8, 8),
+      vec4(15, 3, 8, 8), vec4(25, 15, 4, 9), vec4(29, 12, 3, 15),
+      vec4(12, 27, 4, 5)]:
+        client.sk.drawRect(origin + box.xy, box.zw, tint)
+    return pressed
   client.sk.drawImage(icon, pos + (size - iconSize) / 2,
     color = if active: rgbx(128, 128, 128, 128)
       else: rgbx(255, 255, 255, 255))
@@ -402,6 +415,9 @@ proc drawChrome(client: Client) =
     client.step()
   if client.transport(start, 4, "ui/rewindToEnd"):
     client.seek(int32(client.session.tape.hashes.len))
+  if client.transport(start, 5, "ui/repeat", client.repeating,
+    "Repeat replay: restart after the last tick"):
+      client.repeating = not client.repeating
   for i, icon in ["grid", "eye", "cloud"]:
     let active = [client.grid, client.vision, client.fog][i]
     if client.iconButton(left + vec2(392, 94 + i.float32 * 88),
@@ -419,26 +435,34 @@ proc drawChrome(client: Client) =
         client.accumulator = 0
   if client.iconButton(right + vec2(174, 44), "ui/move", client.takeover):
     if client.live and not client.session.playback:
+      client.director.enabled = false
       client.takeover = not client.takeover
       client.previewTick = -1
   if client.iconButton(right + vec2(174, 132), "ui/queue", client.queueOrders):
     client.queueOrders = not client.queueOrders
     client.previewTick = -1
-  if client.iconButton(right + vec2(174, 220), "ui/repeat", client.repeating):
-    client.repeating = not client.repeating
   discard client.transport(right + vec2(152, 316), 0, "ui/soundMute", true)
+  if client.transport(right + vec2(104, 316), 0, "ui/director",
+    client.director.enabled, "Director camera: follow junctions and mining"):
+      client.director.enabled = not client.director.enabled
+      client.director.reset()
+      client.follow = false
+      if client.director.enabled:
+        client.takeover = false
+        client.director.observe(world)
   for i, name in ["default", "heart", "gear", "scrambler", "aligner",
     "miner", "scout"]:
       if client.iconButton(vec2(width - 262 + (i mod 3).float32 * 82,
         height - 328 + (i div 3).float32 * 87), "vibe/" & name):
           for j, cog in world.cogs:
             if (i < 3 or ord(cog.role) == [0, 0, 0, 3, 2, 1, 4][i]):
+              client.director.enabled = false
               client.selected = j
               client.follow = true
               break
   let
-    trackStart = 355'f
-    trackWidth = max(1'f, width - 853)
+    trackStart = 403'f
+    trackWidth = max(1'f, width - 949)
     duration = if client.live: MaxTicks.float32
       else: max(1'f, client.session.tape.hashes.len.float32)
     fraction = world.tick.float32 / duration
@@ -503,27 +527,33 @@ proc input(client: Client) =
   if window.buttonPressed[KeyM]:
     client.miniature = not client.miniature
   if window.buttonPressed[KeyEscape]:
+    client.director.enabled = false
     client.selected = -1
     client.inspected = -1
     client.follow = false
   if window.buttonPressed[KeyF]:
+    client.director.enabled = false
     client.follow = not client.follow
   if window.buttonPressed[KeyF5]:
     client.saveReplay()
   if client.hit(30, client.size.y - 390, 300, 300) and
     window.buttonDown[MouseLeft]:
+      client.director.enabled = false
       client.center = vec2((Width.float32 - 1) / 2) +
         (mouse - vec2(180, client.size.y - 240)) * ((Width + 10).float32 / 300)
       client.follow = false
   if not client.overHud():
     if window.scrollDelta.y != 0:
+      client.director.enabled = false
       client.zoom = clamp(client.zoom *
         pow(1.0015'f, window.scrollDelta.y), 2'f, 128'f)
     if window.buttonDown[MouseRight]:
+      client.director.enabled = false
       client.center -= window.mouseDelta.vec2 /
         (client.zoom * client.sk.uiScale)
       client.follow = false
     if window.buttonPressed[MouseLeft]:
+      client.director.enabled = false
       let position = (mouse - area / 2) /
         client.zoom + client.center
       let tile = tileAt(int32(floor(position.x)), int32(floor(position.y)))
@@ -612,6 +642,18 @@ proc renderFrame(client: Client) {.measure.} =
           if client.repeating and client.session.tape.hashes.len > 0:
             client.seek(0)
             client.paused = false
+    if client.director.enabled:
+      let changed = client.director.choose(if client.paused: 0.0 else: elapsed)
+      if client.director.target >= 0:
+        let
+          cog = client.session.world.cogs[client.director.target]
+          target = vec2(cog.tile.x.float32 + 0.5'f, cog.tile.y.float32 + 0.5'f)
+          blend = (1.0 - exp(-elapsed * 6)).float32
+        client.selected = client.director.target
+        client.inspected = -1
+        client.center = if changed: target
+          else: client.center + (target - client.center) * blend
+        client.zoom += (48'f - client.zoom) * blend
     let canvas = client.window.size
     if canvas.x <= 0 or canvas.y <= 0:
       return
@@ -677,6 +719,8 @@ proc runClient*(session: Session, sources: array[CogCount, string],
     live: not session.playback,
     policies: newBots(sources),
     paused: paused,
+    repeating: true,
+    director: Director(enabled: true, target: -1),
     rate: speed.float64,
     window: window,
     sk: newSilky(window, "data/atlas.png"),
@@ -689,6 +733,7 @@ proc runClient*(session: Session, sources: array[CogCount, string],
   )
   client.sk.uiScale = 1
   client.renderer = newRenderer(client.sk, session.world)
+  client.director.observe(session.world)
   if session.playback:
     client.scrubs = beginScrubs(session.tape)
     client.lastTime = getMonoTime()

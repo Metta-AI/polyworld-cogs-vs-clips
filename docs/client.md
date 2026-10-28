@@ -9,13 +9,14 @@ background shaders, and themed panel artwork are copied into this repository.
 The fixed game's control meanings are:
 
 - Transport icons: start, back one tick, play/pause, forward one tick, latest
-  recorded tick. The metal scrubber seeks through recorded actions.
+  recorded tick, repeat. The metal scrubber seeks through recorded actions.
 - Turtle through rabbit: 1, 5, 10, 50, 100, or 1000 times playback speed,
   bounded by the client's per-frame tick budget.
 - Grid, eye, cloud: grid and Cog labels, current vision, explored territory.
 - Move: keyboard control of the selected Cog during live simulation.
 - Queue icon or M: switch the main view to original minimap pips.
-- Repeat: loop the completed action tape.
+- Repeat: loop the completed action tape, enabled by default. Turn it off to
+  pause at the final tick. Manual stepping and seeking stay paused.
 - Role icons: select and follow a matching Cog in this fixed game's crew.
 - Sound icon: muted indicator. This port currently has no audio playback.
 
@@ -61,3 +62,16 @@ Slots 0-7 are red, 8-15 blue, 16-23 green, and 24-31 yellow.
 Selecting a Cog shows its tire tracks from the last 200 ticks. Tracks use the
 original straight and corner sprites and fade with simulation time. Pausing
 preserves them, and replay seeking restores them from visual snapshots.
+
+The film-camera toggle beside sound controls the director camera, enabled
+by default alongside Repeat. It follows
+cogs at a close zoom, prioritizing the playable area that changes territory
+owner. A network cut includes the area lost around every disconnected
+junction, including land becoming neutral. Simultaneous events are measured
+in tick order on private station copies. Small captures can rank below
+mining and deliveries. Approaching aligners and scramblers provide a weaker
+fallback signal. Shots last at least
+four seconds and switch when another cog has more useful activity. Manual
+panning, zooming, selection, and following disable the director. Seeking
+clears its history. Camera scoring reads simulation feedback only and never
+changes the simulation, policies, or replay tape.

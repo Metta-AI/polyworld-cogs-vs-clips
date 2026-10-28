@@ -16,10 +16,12 @@ nim check tests/test_yields.nim
 nim check -d:testPipes tests/test_scrubs.nim
 nim check tests/test_routes.nim
 nim check tests/test_observations.nim
+nim check tests/test_directors.nim
 nim check -d:headless tests/test_training.nim
 nim check tests/tests.nim
 nim check tests/test_options.nim
 nim r -d:release tests/test_observations.nim
+nim r -d:release tests/test_directors.nim
 nim r -d:release -d:headless tests/test_training.nim
 nim r -d:release tests/test_motions.nim
 nim r -d:release tests/test_bars.nim

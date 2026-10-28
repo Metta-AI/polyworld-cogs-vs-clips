@@ -40,6 +40,14 @@ output, health, completion artifacts, and seat-specific compilation failure.
 
 ## Current release
 
+Version **0.1.3** fixes hosted score units to match the replay viewer.
+All 10 hosted certification checks and five smoke episodes passed on
+2026-10-27. CoWorld ID:
+`cow_a770ed22-3db9-42eb-b448-9af3863cd566`.
+[Verified hosted match](https://softmax.com/observatory/v2/episode-requests/ereq_0c858079-14e5-4e24-af60-5112320713b0/watch).
+
+## Release 0.1.2
+
 On 2026-10-23, **Cogs vs Clips PW 0.1.2** became public, canonical, and
 certified on Softmax. CoWorld ID:
 `cow_c88ad5c1-c84a-4258-bd17-9a6a4083e075`.
