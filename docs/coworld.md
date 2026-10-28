@@ -40,6 +40,18 @@ output, health, completion artifacts, and seat-specific compilation failure.
 
 ## Current release
 
+Version **0.1.4** adds the territory-aware director camera and the transport
+Repeat button, both enabled by default. The viewer was built from commit
+`e7fbda5`. All 10 hosted certification checks and five smoke episodes passed
+on 2026-10-28. This version is public and canonical. CoWorld ID:
+`cow_80dbf422-c235-4cea-a561-3df19488e2c8`.
+[Verified hosted match](https://softmax.com/observatory/v2/episode-requests/ereq_63fce15d-553a-4b29-8968-32d3710150ec/watch).
+
+Round 38 completed all four games on version 0.1.4 without errors.
+[Watch a round replay](https://softmax.com/observatory/v2/episode-requests/ereq_ea855b7f-c1e1-4f3f-b946-4984f69956af/watch).
+
+## Release 0.1.3
+
 Version **0.1.3** fixes hosted score units to match the replay viewer.
 All 10 hosted certification checks and five smoke episodes passed on
 2026-10-27. CoWorld ID:
