@@ -1,0 +1,208 @@
+{
+  "player": "Andre von Houck",
+  "player_id": "ply_607f17a2-3acf-405b-91fe-d12ef1001c00",
+  "policy": "cvc-pw-safa-tensors-houck:v1",
+  "policy_version_id": "7e1bfa6c-3535-4ed3-907e-daef935ba874",
+  "submission_id": "sub_26862364-12de-43b4-a1ab-f82baa273965",
+  "world_id": "cow_0a797291-4def-4c9f-b513-4610feee8696",
+  "world_version": "0.1.5",
+  "execution": "BASIC generic tensors, no nn_safa native wrapper",
+  "checkpoint_sha256": "4b59d0461267164a4f34aa0496135e0e7a983520031e4ac5f84eba6cfc631774",
+  "membership": [
+    {
+      "id": "lpm_a6e45469-b688-4900-80d3-da35484170c3",
+      "status": "competing",
+      "substatus": "active",
+      "is_champion": true
+    }
+  ],
+  "round": {
+    "id": "round_e9b0cee7-f0d4-4d8b-a504-3d7dfbbc34a2",
+    "round_number": 88,
+    "status": "completed",
+    "completed_at": "2026-10-29T17:21:40.388738Z"
+  },
+  "verified_games": [
+    {
+      "id": "ereq_d3bf3e4e-dc36-4f09-8b21-0a80679af226",
+      "round_id": "round_e9b0cee7-f0d4-4d8b-a504-3d7dfbbc34a2",
+      "status": "completed",
+      "coworld_id": "cow_0a797291-4def-4c9f-b513-4610feee8696",
+      "error": null,
+      "error_type": null,
+      "scores": [
+        {
+          "policy_version_id": "f7b91fa6-6042-4cdc-b943-85566f3330b2",
+          "score": 38.6886
+        },
+        {
+          "policy_version_id": "a8c0d817-1dcb-4287-91b6-84043f1dac5b",
+          "score": 42.5398
+        },
+        {
+          "policy_version_id": "7e1bfa6c-3535-4ed3-907e-daef935ba874",
+          "score": 37.4188
+        },
+        {
+          "policy_version_id": "276a4bdf-b2c7-4b2b-9cfb-7e79bf38df87",
+          "score": 31.5855
+        },
+        {
+          "policy_version_id": "44922bbc-d4f6-4960-959a-b3c876e4c8a9",
+          "score": 43.2103
+        }
+      ],
+      "replay_url": "https://softmax-public.s3.amazonaws.com/replays/f858afc2-371c-49a1-8fda-55be2ef6ce4e.replay",
+      "running_at": "2026-10-29T17:18:44Z",
+      "completed_at": "2026-10-29T17:21:34.977982Z",
+      "safa_slots": [
+        15
+      ],
+      "verified_inference_steps_per_slot": 10000
+    },
+    {
+      "id": "ereq_fab94540-8a15-469f-ba16-864ac08bbb51",
+      "round_id": "round_e9b0cee7-f0d4-4d8b-a504-3d7dfbbc34a2",
+      "status": "completed",
+      "coworld_id": "cow_0a797291-4def-4c9f-b513-4610feee8696",
+      "error": null,
+      "error_type": null,
+      "scores": [
+        {
+          "policy_version_id": "f7b91fa6-6042-4cdc-b943-85566f3330b2",
+          "score": 38.280975
+        },
+        {
+          "policy_version_id": "44922bbc-d4f6-4960-959a-b3c876e4c8a9",
+          "score": 35.9796
+        },
+        {
+          "policy_version_id": "a8c0d817-1dcb-4287-91b6-84043f1dac5b",
+          "score": 28.2176
+        },
+        {
+          "policy_version_id": "276a4bdf-b2c7-4b2b-9cfb-7e79bf38df87",
+          "score": 29.267
+        },
+        {
+          "policy_version_id": "7e1bfa6c-3535-4ed3-907e-daef935ba874",
+          "score": 59.6597
+        }
+      ],
+      "replay_url": "https://softmax-public.s3.amazonaws.com/replays/436a557c-e2fd-4316-8fc2-ccde3fcff247.replay",
+      "running_at": "2026-10-29T17:18:43Z",
+      "completed_at": "2026-10-29T17:21:36.011099Z",
+      "safa_slots": [
+        27
+      ],
+      "verified_inference_steps_per_slot": 10000
+    },
+    {
+      "id": "ereq_360b95b6-9484-4a21-a38c-ca97102c8ac2",
+      "round_id": "round_e9b0cee7-f0d4-4d8b-a504-3d7dfbbc34a2",
+      "status": "completed",
+      "coworld_id": "cow_0a797291-4def-4c9f-b513-4610feee8696",
+      "error": null,
+      "error_type": null,
+      "scores": [
+        {
+          "policy_version_id": "f7b91fa6-6042-4cdc-b943-85566f3330b2",
+          "score": 33.197649999999996
+        },
+        {
+          "policy_version_id": "7e1bfa6c-3535-4ed3-907e-daef935ba874",
+          "score": 0.2155
+        },
+        {
+          "policy_version_id": "44922bbc-d4f6-4960-959a-b3c876e4c8a9",
+          "score": 44.5151
+        },
+        {
+          "policy_version_id": "a8c0d817-1dcb-4287-91b6-84043f1dac5b",
+          "score": 27.883
+        },
+        {
+          "policy_version_id": "276a4bdf-b2c7-4b2b-9cfb-7e79bf38df87",
+          "score": 60.177
+        }
+      ],
+      "replay_url": "https://softmax-public.s3.amazonaws.com/replays/9e67e0a1-efad-42bc-816c-35891979f1cd.replay",
+      "running_at": "2026-10-29T17:18:42Z",
+      "completed_at": "2026-10-29T17:20:42.781449Z",
+      "safa_slots": [
+        2
+      ],
+      "verified_inference_steps_per_slot": 10000
+    },
+    {
+      "id": "ereq_b0e0889c-f59d-4f36-a4c5-332539970af7",
+      "round_id": "round_e9b0cee7-f0d4-4d8b-a504-3d7dfbbc34a2",
+      "status": "completed",
+      "coworld_id": "cow_0a797291-4def-4c9f-b513-4610feee8696",
+      "error": null,
+      "error_type": null,
+      "scores": [
+        {
+          "policy_version_id": "f7b91fa6-6042-4cdc-b943-85566f3330b2",
+          "score": 31.088375000000003
+        },
+        {
+          "policy_version_id": "7e1bfa6c-3535-4ed3-907e-daef935ba874",
+          "score": 0.2394
+        },
+        {
+          "policy_version_id": "a8c0d817-1dcb-4287-91b6-84043f1dac5b",
+          "score": 32.8093
+        },
+        {
+          "policy_version_id": "276a4bdf-b2c7-4b2b-9cfb-7e79bf38df87",
+          "score": 37.6815
+        },
+        {
+          "policy_version_id": "44922bbc-d4f6-4960-959a-b3c876e4c8a9",
+          "score": 53.6233
+        }
+      ],
+      "replay_url": "https://softmax-public.s3.amazonaws.com/replays/8758e53e-ae35-4f66-84f3-59a501f01976.replay",
+      "running_at": "2026-10-29T17:18:41Z",
+      "completed_at": "2026-10-29T17:19:46.842787Z",
+      "safa_slots": [
+        1
+      ],
+      "verified_inference_steps_per_slot": 10000
+    },
+    {
+      "id": "ereq_26641380-a2ca-4275-a19f-23f62028bf14",
+      "round_id": null,
+      "status": "completed",
+      "coworld_id": "cow_0a797291-4def-4c9f-b513-4610feee8696",
+      "error": null,
+      "error_type": null,
+      "scores": [
+        {
+          "policy_version_id": "7e1bfa6c-3535-4ed3-907e-daef935ba874",
+          "score": 31.3569
+        },
+        {
+          "policy_version_id": "f7b91fa6-6042-4cdc-b943-85566f3330b2",
+          "score": 42.50963333333333
+        }
+      ],
+      "replay_url": "https://softmax-public.s3.amazonaws.com/replays/f0086b4a-7924-4150-a0fe-ce4b88068e9e.replay",
+      "running_at": "2026-10-29T17:09:21Z",
+      "completed_at": "2026-10-29T17:16:39.960239Z",
+      "safa_slots": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "verified_inference_steps_per_slot": 10000
+    }
+  ],
+  "earlier_ladder_failures": "Separate entrant cogs-vs-clips-pw-player failed policy loading and was automatically disqualified under the existing league rules."
+}

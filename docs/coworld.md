@@ -40,6 +40,15 @@ output, health, completion artifacts, and seat-specific compilation failure.
 
 ## Current release
 
+Version **0.1.5** adds generic BASIC tensors to the hosted runtime, including
+convolution and group normalization. Linux uses single-threaded OpenBLAS.
+The Safa CNN/LSTM architecture lives in the BASIC policy rather than a named
+native network function. This version is public, canonical, and passed all
+10 certification checks and five hosted smoke games on 2026-10-29.
+CoWorld ID: `cow_0a797291-4def-4c9f-b513-4610feee8696`.
+
+## Release 0.1.4
+
 Version **0.1.4** adds the territory-aware director camera and the transport
 Repeat button, both enabled by default. The viewer was built from commit
 `e7fbda5`. All 10 hosted certification checks and five smoke episodes passed

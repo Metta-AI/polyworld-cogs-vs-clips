@@ -34,3 +34,28 @@ nim r -d:release -d:headless -d:tensorBlas src/cvc.nim \
   --bots:out/safa/safa-tensors.zip:8 --bots:players/base.bas:24 \
   --record:out/safa/tensor-versus-base.replay
 ```
+
+## Hosted verification
+
+On 2026-10-29, `cvc-pw-safa-tensors-houck:v1` was submitted as Andre von Houck
+and became an active competing champion. CoWorld 0.1.5 passed all 10 hosted
+certification checks and five smoke games.
+
+A hosted eight-neural-seat match completed successfully. Every Safa private
+log recorded initialization, 10,000 tensor inference steps, and completion.
+Safa's team scored 31.3569; the three baseline teams averaged 42.5096.
+The running-to-completed interval was approximately 439 seconds.
+
+Ladder round 88 then completed four games. Each included one Safa cog among
+other policies and baseline fillers, and every Safa log again recorded all
+10,000 inference steps. Its team scores were 0.2394, 0.2155, 59.6597 and
+37.4188. This verifies execution and illustrates variable mixed-team results;
+it is not a reliable win-rate estimate.
+
+Earlier ladder attempts were blocked by a different entrant failing policy
+loading. The league's existing failure rules automatically disqualified that
+entrant. No policy fallback or manual scoring change was used.
+
+The identifiers and verification evidence are in `safa-submission.json`.
+[Hosted tensor match](https://softmax.com/observatory/v2/episode-requests/ereq_26641380-a2ca-4275-a19f-23f62028bf14/watch).
+[Successful ladder replay](https://softmax.com/observatory/v2/episode-requests/ereq_fab94540-8a15-469f-ba16-864ac08bbb51/watch).
