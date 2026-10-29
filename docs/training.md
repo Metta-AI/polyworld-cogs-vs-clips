@@ -143,3 +143,47 @@ improvement. The learned action distribution favored rest, north and east and
 did not capture junctions on these evaluation seeds. Keep this run as a baseline
 for reward/encoder experiments, not as a promoted playing policy. These four
 self-play comparisons are not a head-to-head win-rate estimate.
+# Tools entry points
+
+Run the bounded CPU PufferLib PPO trainer from the repository root:
+
+```sh
+sh tools/build_training.sh
+/Users/me/p/PufferLib/puffer/bin/python tools/train_puffer.py \
+  --seconds 600 --evaluate --output out/puffer-test
+```
+
+Use a Python environment with `training/requirements.txt` installed on other
+machines. `training/train.py` remains a compatibility entry point. The time
+budget covers learning; optional evaluation runs afterward. One PPO update
+can finish slightly beyond the deadline. The trainer saves initial weights,
+final model and optimizer files, metrics, configuration, source/library hashes,
+and a summary. `--checkpoint` loads model weights with a fresh optimizer; it
+does not restore the environment or provide exact training continuation.
+
+This is the existing small MLP baseline, not Safa's CNN/LSTM. The simulation
+stays frozen and headless. Training rewards remain score delta plus individual
+gather/deposit/capture bonuses. No Safa curriculum is implicitly enabled.
+See [the source investigation](safa-training-research.md) for the available
+curricula and their limitations.
+
+For a direct match diagnostic, use the model path in `summary.json`:
+
+```sh
+python tools/evaluate_puffer.py PATH_TO_MODEL.pt \
+  --initial out/puffer-test/initial.pt \
+  --output out/puffer-test/versus-base.json
+```
+
+This plays the initializer and trained policy on the same four full games.
+Each controls eight cogs against 24 `base.bas` opponents. The controlled team
+rotates across the four corners. These few games are a diagnostic, not a
+reliable ladder win-rate estimate. Neither helper uploads a policy.
+
+The October 29 test completed 600.014 seconds, 22,388,736 agent steps,
+5,466 updates, and 68 complete training matches. It did not learn useful play:
+against base.bas the initializer averaged 0.358525 score and the trained
+checkpoint averaged 0, both with zero wins in four games. Trained self-play
+also scored zero on four held-out matches. The checkpoint is retained under
+`out/puffer-10min-20261029/`; the compact
+[test receipt](puffer-test-20261029.json) includes the full measurements.

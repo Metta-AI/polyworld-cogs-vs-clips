@@ -1,0 +1,218 @@
+{
+  "seconds": 600.7471533338539,
+  "agent_steps": 663552,
+  "updates": 648,
+  "checkpoint": "out/safa-curriculum-10min-20261029/179329635273/model_000648.pt",
+  "steps_per_second": 1104.5445597496548,
+  "weight_change_l2": 8.615363036010843,
+  "reward_sum": 2.224999815225601,
+  "active_event_totals": [
+    1.0,
+    0.0,
+    1.0,
+    104.0,
+    124.0,
+    19.0,
+    278.0,
+    0.0,
+    0.0,
+    24.0
+  ],
+  "native_stats": {
+    "episodes": 2,
+    "ticks": 20736,
+    "score": 17386,
+    "gathered": 467,
+    "deposited": 29,
+    "captured": 3
+  },
+  "config": {
+    "name": "pufferai",
+    "project": "ablations",
+    "seed": 42,
+    "torch_deterministic": true,
+    "cpu_offload": false,
+    "device": "cpu",
+    "optimizer": "adam",
+    "anneal_lr": false,
+    "precision": "float32",
+    "total_timesteps": 1000000000,
+    "learning_rate": 0.0001,
+    "gamma": 0.99,
+    "gae_lambda": 0.9,
+    "update_epochs": 1,
+    "clip_coef": 0.2,
+    "vf_coef": 0.5,
+    "vf_clip_coef": 0.2,
+    "max_grad_norm": 1.0,
+    "ent_coef": 0.03,
+    "adam_beta1": 0.95,
+    "adam_beta2": 0.999,
+    "adam_eps": 1e-12,
+    "data_dir": "out/safa-curriculum-10min-20261029",
+    "checkpoint_interval": 10000,
+    "batch_size": 1024,
+    "minibatch_size": 256,
+    "max_minibatch_size": 256,
+    "bptt_horizon": 32,
+    "compile": false,
+    "compile_mode": "max-autotune-no-cudagraphs",
+    "compile_fullgraph": true,
+    "vtrace_rho_clip": 1.0,
+    "vtrace_c_clip": 1.0,
+    "prio_alpha": 0.8,
+    "prio_beta0": 0.2,
+    "use_rnn": true,
+    "min_lr_ratio": 0.0,
+    "env": "cvc_safa"
+  },
+  "source": "https://github.com/Metta-AI/cvc-fourscore-rl-experiments/blob/ba2cbbace118369d405d3087febec62adc73dee9/",
+  "source_hashes": {
+    "tools/train_safa.py": "96367782613ec8c4b972bb4f715c2a404e41ca1692a23a3e131b3f4ed6b18758",
+    "training/safa.py": "e42c12c785510631bfce5a13dd1691bcf23f50b7695fe86af4b9ad4e2654719c",
+    "training/safa_pufferl.py": "ca67e317bcd91a22a134173bcc29a211ac3b1fb079730d5024ec0674e562160a",
+    "src/cvc/training.nim": "6c1c0562b2e653803360c4fe1d5dc16b79b04db6cbce9441d9bfbd1ac37b0661",
+    "src/cvc/neuralviews.nim": "489aa4421663d95061021d7dcad1a29f0d7759e987be442f6512daa40c5716a6"
+  },
+  "library_sha256": "bf587f845073dcfe46ef3874a68895c8e6003768d2988316c1fe3e6236bb74ea",
+  "initial_checkpoint": "None",
+  "torch": "2.8.0",
+  "initial_evaluation": {
+    "seconds": 417.2436962078791,
+    "checkpoint": "out/safa-curriculum-10min-20261029/initial.pt",
+    "games": [
+      {
+        "seed": 2001,
+        "team": 0,
+        "scores": [
+          0.0,
+          41.0241,
+          51.8412,
+          43.9203
+        ],
+        "score": 0.0,
+        "opponent_mean": 45.5952,
+        "rank": 4,
+        "outright_win": false
+      },
+      {
+        "seed": 2002,
+        "team": 1,
+        "scores": [
+          35.7776,
+          0.0,
+          33.1612,
+          62.5093
+        ],
+        "score": 0.0,
+        "opponent_mean": 43.81603333333333,
+        "rank": 4,
+        "outright_win": false
+      },
+      {
+        "seed": 2003,
+        "team": 2,
+        "scores": [
+          54.375,
+          27.3235,
+          0.0,
+          60.4717
+        ],
+        "score": 0.0,
+        "opponent_mean": 47.39006666666667,
+        "rank": 4,
+        "outright_win": false
+      },
+      {
+        "seed": 2004,
+        "team": 3,
+        "scores": [
+          16.433,
+          36.1439,
+          49.1126,
+          0.6185
+        ],
+        "score": 0.6185,
+        "opponent_mean": 33.8965,
+        "rank": 4,
+        "outright_win": false
+      }
+    ],
+    "mean_score": 0.154625,
+    "outright_wins": 0,
+    "note": "Eight neural generalists versus 24 base.bas cogs. Small held-out diagnostic."
+  },
+  "notes": [
+    "From-scratch CNN/LSTM using active generalist/idle curriculum.",
+    "134-feature Polyworld adapter, not exact original environment parity.",
+    "CPU run; held-out initializer evaluation ran concurrently.",
+    "Agent steps include idle seats."
+  ],
+  "trained_evaluation": {
+    "seconds": 370.60260120779276,
+    "checkpoint": "out/safa-curriculum-10min-20261029/179329635273/model_000648.pt",
+    "games": [
+      {
+        "seed": 2001,
+        "team": 0,
+        "scores": [
+          0.0,
+          36.0324,
+          44.7516,
+          44.0043
+        ],
+        "score": 0.0,
+        "opponent_mean": 41.5961,
+        "rank": 4,
+        "outright_win": false
+      },
+      {
+        "seed": 2002,
+        "team": 1,
+        "scores": [
+          44.7189,
+          0.0,
+          31.252,
+          58.5469
+        ],
+        "score": 0.0,
+        "opponent_mean": 44.83926666666667,
+        "rank": 4,
+        "outright_win": false
+      },
+      {
+        "seed": 2003,
+        "team": 2,
+        "scores": [
+          55.823,
+          25.3286,
+          0.0,
+          60.1124
+        ],
+        "score": 0.0,
+        "opponent_mean": 47.088,
+        "rank": 4,
+        "outright_win": false
+      },
+      {
+        "seed": 2004,
+        "team": 3,
+        "scores": [
+          17.267,
+          37.3592,
+          53.242,
+          0.0
+        ],
+        "score": 0.0,
+        "opponent_mean": 35.95606666666667,
+        "rank": 4,
+        "outright_win": false
+      }
+    ],
+    "mean_score": 0.0,
+    "outright_wins": 0,
+    "note": "Eight neural generalists versus 24 base.bas cogs. Small held-out diagnostic."
+  },
+  "basic_package": "out/safa-curriculum-10min-20261029/player.zip",
+  "basic_package_verified_ticks": 20
+}

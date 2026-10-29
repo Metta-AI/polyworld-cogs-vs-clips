@@ -1,0 +1,732 @@
+{
+  "obs_features": [
+    {
+      "id": 0,
+      "name": "agent:group",
+      "normalization": 10.0
+    },
+    {
+      "id": 1,
+      "name": "episode_completion_pct",
+      "normalization": 255.0
+    },
+    {
+      "id": 2,
+      "name": "last_action",
+      "normalization": 10.0
+    },
+    {
+      "id": 3,
+      "name": "last_reward",
+      "normalization": 100.0
+    },
+    {
+      "id": 4,
+      "name": "goal",
+      "normalization": 100.0
+    },
+    {
+      "id": 5,
+      "name": "vibe",
+      "normalization": 255.0
+    },
+    {
+      "id": 6,
+      "name": "tag",
+      "normalization": 10.0
+    },
+    {
+      "id": 7,
+      "name": "lp:east",
+      "normalization": 255.0
+    },
+    {
+      "id": 8,
+      "name": "lp:west",
+      "normalization": 255.0
+    },
+    {
+      "id": 9,
+      "name": "lp:north",
+      "normalization": 255.0
+    },
+    {
+      "id": 10,
+      "name": "lp:south",
+      "normalization": 255.0
+    },
+    {
+      "id": 11,
+      "name": "agent_id",
+      "normalization": 255.0
+    },
+    {
+      "id": 12,
+      "name": "inv:oxygen",
+      "normalization": 256.0
+    },
+    {
+      "id": 13,
+      "name": "inv:oxygen:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 14,
+      "name": "inv:carbon",
+      "normalization": 256.0
+    },
+    {
+      "id": 15,
+      "name": "inv:carbon:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 16,
+      "name": "inv:germanium",
+      "normalization": 256.0
+    },
+    {
+      "id": 17,
+      "name": "inv:germanium:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 18,
+      "name": "inv:silicon",
+      "normalization": 256.0
+    },
+    {
+      "id": 19,
+      "name": "inv:silicon:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 20,
+      "name": "inv:hp",
+      "normalization": 256.0
+    },
+    {
+      "id": 21,
+      "name": "inv:hp:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 22,
+      "name": "inv:heart",
+      "normalization": 256.0
+    },
+    {
+      "id": 23,
+      "name": "inv:heart:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 24,
+      "name": "inv:energy",
+      "normalization": 256.0
+    },
+    {
+      "id": 25,
+      "name": "inv:energy:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 26,
+      "name": "inv:aligner",
+      "normalization": 256.0
+    },
+    {
+      "id": 27,
+      "name": "inv:aligner:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 28,
+      "name": "inv:scrambler",
+      "normalization": 256.0
+    },
+    {
+      "id": 29,
+      "name": "inv:scrambler:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 30,
+      "name": "inv:miner",
+      "normalization": 256.0
+    },
+    {
+      "id": 31,
+      "name": "inv:miner:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 32,
+      "name": "inv:scout",
+      "normalization": 256.0
+    },
+    {
+      "id": 33,
+      "name": "inv:scout:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 34,
+      "name": "inv:solar",
+      "normalization": 256.0
+    },
+    {
+      "id": 35,
+      "name": "inv:solar:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 36,
+      "name": "inv:role_miner",
+      "normalization": 256.0
+    },
+    {
+      "id": 37,
+      "name": "inv:role_miner:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 38,
+      "name": "inv:role_aligner",
+      "normalization": 256.0
+    },
+    {
+      "id": 39,
+      "name": "inv:role_aligner:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 40,
+      "name": "inv:role_scrambler",
+      "normalization": 256.0
+    },
+    {
+      "id": 41,
+      "name": "inv:role_scrambler:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 42,
+      "name": "inv:role_scout",
+      "normalization": 256.0
+    },
+    {
+      "id": 43,
+      "name": "inv:role_scout:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 44,
+      "name": "inv:role_idle",
+      "normalization": 256.0
+    },
+    {
+      "id": 45,
+      "name": "inv:role_idle:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 46,
+      "name": "inv:role_adaptive_aligner",
+      "normalization": 256.0
+    },
+    {
+      "id": 47,
+      "name": "inv:role_adaptive_aligner:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 48,
+      "name": "inv:role_adaptive_scrambler",
+      "normalization": 256.0
+    },
+    {
+      "id": 49,
+      "name": "inv:role_adaptive_scrambler:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 50,
+      "name": "inv:role_miner_aligner",
+      "normalization": 256.0
+    },
+    {
+      "id": 51,
+      "name": "inv:role_miner_aligner:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 52,
+      "name": "inv:role_miner_scrambler",
+      "normalization": 256.0
+    },
+    {
+      "id": 53,
+      "name": "inv:role_miner_scrambler:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 54,
+      "name": "inv:role_aligner_scrambler",
+      "normalization": 256.0
+    },
+    {
+      "id": 55,
+      "name": "inv:role_aligner_scrambler:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 56,
+      "name": "protocol_input:oxygen",
+      "normalization": 100.0
+    },
+    {
+      "id": 57,
+      "name": "protocol_input:carbon",
+      "normalization": 100.0
+    },
+    {
+      "id": 58,
+      "name": "protocol_input:germanium",
+      "normalization": 100.0
+    },
+    {
+      "id": 59,
+      "name": "protocol_input:silicon",
+      "normalization": 100.0
+    },
+    {
+      "id": 60,
+      "name": "protocol_input:hp",
+      "normalization": 100.0
+    },
+    {
+      "id": 61,
+      "name": "protocol_input:heart",
+      "normalization": 100.0
+    },
+    {
+      "id": 62,
+      "name": "protocol_input:energy",
+      "normalization": 100.0
+    },
+    {
+      "id": 63,
+      "name": "protocol_input:aligner",
+      "normalization": 100.0
+    },
+    {
+      "id": 64,
+      "name": "protocol_input:scrambler",
+      "normalization": 100.0
+    },
+    {
+      "id": 65,
+      "name": "protocol_input:miner",
+      "normalization": 100.0
+    },
+    {
+      "id": 66,
+      "name": "protocol_input:scout",
+      "normalization": 100.0
+    },
+    {
+      "id": 67,
+      "name": "protocol_input:solar",
+      "normalization": 100.0
+    },
+    {
+      "id": 68,
+      "name": "protocol_input:role_miner",
+      "normalization": 100.0
+    },
+    {
+      "id": 69,
+      "name": "protocol_input:role_aligner",
+      "normalization": 100.0
+    },
+    {
+      "id": 70,
+      "name": "protocol_input:role_scrambler",
+      "normalization": 100.0
+    },
+    {
+      "id": 71,
+      "name": "protocol_input:role_scout",
+      "normalization": 100.0
+    },
+    {
+      "id": 72,
+      "name": "protocol_input:role_idle",
+      "normalization": 100.0
+    },
+    {
+      "id": 73,
+      "name": "protocol_input:role_adaptive_aligner",
+      "normalization": 100.0
+    },
+    {
+      "id": 74,
+      "name": "protocol_input:role_adaptive_scrambler",
+      "normalization": 100.0
+    },
+    {
+      "id": 75,
+      "name": "protocol_input:role_miner_aligner",
+      "normalization": 100.0
+    },
+    {
+      "id": 76,
+      "name": "protocol_input:role_miner_scrambler",
+      "normalization": 100.0
+    },
+    {
+      "id": 77,
+      "name": "protocol_input:role_aligner_scrambler",
+      "normalization": 100.0
+    },
+    {
+      "id": 78,
+      "name": "protocol_output:oxygen",
+      "normalization": 100.0
+    },
+    {
+      "id": 79,
+      "name": "protocol_output:carbon",
+      "normalization": 100.0
+    },
+    {
+      "id": 80,
+      "name": "protocol_output:germanium",
+      "normalization": 100.0
+    },
+    {
+      "id": 81,
+      "name": "protocol_output:silicon",
+      "normalization": 100.0
+    },
+    {
+      "id": 82,
+      "name": "protocol_output:hp",
+      "normalization": 100.0
+    },
+    {
+      "id": 83,
+      "name": "protocol_output:heart",
+      "normalization": 100.0
+    },
+    {
+      "id": 84,
+      "name": "protocol_output:energy",
+      "normalization": 100.0
+    },
+    {
+      "id": 85,
+      "name": "protocol_output:aligner",
+      "normalization": 100.0
+    },
+    {
+      "id": 86,
+      "name": "protocol_output:scrambler",
+      "normalization": 100.0
+    },
+    {
+      "id": 87,
+      "name": "protocol_output:miner",
+      "normalization": 100.0
+    },
+    {
+      "id": 88,
+      "name": "protocol_output:scout",
+      "normalization": 100.0
+    },
+    {
+      "id": 89,
+      "name": "protocol_output:solar",
+      "normalization": 100.0
+    },
+    {
+      "id": 90,
+      "name": "protocol_output:role_miner",
+      "normalization": 100.0
+    },
+    {
+      "id": 91,
+      "name": "protocol_output:role_aligner",
+      "normalization": 100.0
+    },
+    {
+      "id": 92,
+      "name": "protocol_output:role_scrambler",
+      "normalization": 100.0
+    },
+    {
+      "id": 93,
+      "name": "protocol_output:role_scout",
+      "normalization": 100.0
+    },
+    {
+      "id": 94,
+      "name": "protocol_output:role_idle",
+      "normalization": 100.0
+    },
+    {
+      "id": 95,
+      "name": "protocol_output:role_adaptive_aligner",
+      "normalization": 100.0
+    },
+    {
+      "id": 96,
+      "name": "protocol_output:role_adaptive_scrambler",
+      "normalization": 100.0
+    },
+    {
+      "id": 97,
+      "name": "protocol_output:role_miner_aligner",
+      "normalization": 100.0
+    },
+    {
+      "id": 98,
+      "name": "protocol_output:role_miner_scrambler",
+      "normalization": 100.0
+    },
+    {
+      "id": 99,
+      "name": "protocol_output:role_aligner_scrambler",
+      "normalization": 100.0
+    },
+    {
+      "id": 100,
+      "name": "team:oxygen",
+      "normalization": 256.0
+    },
+    {
+      "id": 101,
+      "name": "team:oxygen:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 102,
+      "name": "team:carbon",
+      "normalization": 256.0
+    },
+    {
+      "id": 103,
+      "name": "team:carbon:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 104,
+      "name": "team:germanium",
+      "normalization": 256.0
+    },
+    {
+      "id": 105,
+      "name": "team:germanium:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 106,
+      "name": "team:silicon",
+      "normalization": 256.0
+    },
+    {
+      "id": 107,
+      "name": "team:silicon:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 108,
+      "name": "inv:own:role_miner",
+      "normalization": 256.0
+    },
+    {
+      "id": 109,
+      "name": "inv:own:role_miner:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 110,
+      "name": "inv:own:role_aligner",
+      "normalization": 256.0
+    },
+    {
+      "id": 111,
+      "name": "inv:own:role_aligner:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 112,
+      "name": "inv:own:role_scrambler",
+      "normalization": 256.0
+    },
+    {
+      "id": 113,
+      "name": "inv:own:role_scrambler:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 114,
+      "name": "inv:own:role_scout",
+      "normalization": 256.0
+    },
+    {
+      "id": 115,
+      "name": "inv:own:role_scout:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 116,
+      "name": "inv:own:role_idle",
+      "normalization": 256.0
+    },
+    {
+      "id": 117,
+      "name": "inv:own:role_idle:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 118,
+      "name": "inv:own:role_adaptive_aligner",
+      "normalization": 256.0
+    },
+    {
+      "id": 119,
+      "name": "inv:own:role_adaptive_aligner:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 120,
+      "name": "inv:own:role_adaptive_scrambler",
+      "normalization": 256.0
+    },
+    {
+      "id": 121,
+      "name": "inv:own:role_adaptive_scrambler:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 122,
+      "name": "inv:own:role_miner_aligner",
+      "normalization": 256.0
+    },
+    {
+      "id": 123,
+      "name": "inv:own:role_miner_aligner:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 124,
+      "name": "inv:own:role_miner_scrambler",
+      "normalization": 256.0
+    },
+    {
+      "id": 125,
+      "name": "inv:own:role_miner_scrambler:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 126,
+      "name": "inv:own:role_aligner_scrambler",
+      "normalization": 256.0
+    },
+    {
+      "id": 127,
+      "name": "inv:own:role_aligner_scrambler:p1",
+      "normalization": 256.0
+    },
+    {
+      "id": 128,
+      "name": "last_action_move",
+      "normalization": 1.0
+    },
+    {
+      "id": 129,
+      "name": "territory:here",
+      "normalization": 3.0
+    },
+    {
+      "id": 130,
+      "name": "territory:north",
+      "normalization": 9.0
+    },
+    {
+      "id": 131,
+      "name": "territory:south",
+      "normalization": 9.0
+    },
+    {
+      "id": 132,
+      "name": "territory:east",
+      "normalization": 9.0
+    },
+    {
+      "id": 133,
+      "name": "territory:west",
+      "normalization": 9.0
+    }
+  ],
+  "tags": [
+    "net:cogs_blue",
+    "net:cogs_green",
+    "net:cogs_red",
+    "net:cogs_yellow",
+    "team:cogs_blue",
+    "team:cogs_green",
+    "team:cogs_red",
+    "team:cogs_yellow",
+    "type:agent",
+    "type:aligner",
+    "type:carbon_extractor",
+    "type:germanium_extractor",
+    "type:hub",
+    "type:junction",
+    "type:miner",
+    "type:oxygen_extractor",
+    "type:scout",
+    "type:scrambler",
+    "type:ship",
+    "type:silicon_extractor",
+    "type:wall"
+  ],
+  "action_names": [
+    "noop",
+    "move_north",
+    "move_south",
+    "move_west",
+    "move_east"
+  ],
+  "vibe_action_names": [
+    "change_vibe_default",
+    "change_vibe_heart",
+    "change_vibe_gear",
+    "change_vibe_scrambler",
+    "change_vibe_aligner",
+    "change_vibe_miner",
+    "change_vibe_scout"
+  ],
+  "move_energy_cost": 4,
+  "observation_kind": "token",
+  "observation_dtype": "uint8",
+  "observation_low": 0.0,
+  "observation_high": 255.0,
+  "num_agents": 32,
+  "observation_shape": [
+    500,
+    3
+  ],
+  "egocentric_shape": [
+    13,
+    13
+  ],
+  "talk": {
+    "enabled": false,
+    "max_length": 140,
+    "cooldown_steps": 50
+  }
+}

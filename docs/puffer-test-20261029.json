@@ -1,0 +1,200 @@
+{
+  "seconds": 600.0144256248605,
+  "agent_steps": 22388736,
+  "updates": 5466,
+  "steps_per_second": 37313.66287849524,
+  "weight_change_l2": 21.706784093511867,
+  "native_stats": {
+    "episodes": 68,
+    "ticks": 699648,
+    "score": 274968,
+    "gathered": 9076,
+    "deposited": 217,
+    "captured": 32
+  },
+  "checkpoint": "out/puffer-10min-20261029/cvc_179329496725/model_cvc_005466.pt",
+  "library_sha256": "682950c7a93288ebe8f1a0d3bca222264fb6501fc5393d60416ea46a0bab16a9",
+  "trainer_sha256": "deabc18a05e09874c409309a02e3914be12230a5aae7b118755df8f31b922baf",
+  "source_commit": "649951c12f8ea015a4a5477f628e2ee323a4d98b",
+  "self_play": {
+    "seeds": [
+      1001,
+      1002,
+      1003,
+      1004
+    ],
+    "initial_self_play": {
+      "seconds": 11.883690833114088,
+      "reward_sum": 1101.8740578591824,
+      "action_counts": [
+        256171,
+        256543,
+        256017,
+        255264,
+        256005
+      ],
+      "stats": {
+        "episodes": 4,
+        "ticks": 40000,
+        "score": 135713,
+        "gathered": 1105,
+        "deposited": 176,
+        "captured": 16
+      }
+    },
+    "trained_self_play": {
+      "seconds": 11.654774957802147,
+      "reward_sum": 5.029999852180481,
+      "action_counts": [
+        209664,
+        407257,
+        398193,
+        121845,
+        143041
+      ],
+      "stats": {
+        "episodes": 4,
+        "ticks": 40000,
+        "score": 0,
+        "gathered": 497,
+        "deposited": 3,
+        "captured": 0
+      }
+    },
+    "note": "Separate self-play rollouts, not head-to-head strength or ladder wins."
+  },
+  "notes": [
+    "Small flat-token MLP from scratch, not Safa CNN/LSTM or curriculum.",
+    "Optional PufferLib CPU monitor failed under sandbox; learning continued. Monitor fallback verified afterward.",
+    "Some baseline evaluation ran concurrently; throughput is not an isolated performance benchmark."
+  ],
+  "versus_base": {
+    "note": "Eight learned cogs against 24 base.bas cogs, four matched seeds and team rotations.",
+    "initial": {
+      "seconds": 116.27965854201466,
+      "games": [
+        {
+          "seed": 2001,
+          "team": 0,
+          "scores": [
+            0.788,
+            41.0033,
+            46.5283,
+            51.0939
+          ],
+          "score": 0.788,
+          "opponent_mean": 46.2085,
+          "rank": 4,
+          "outright_win": false
+        },
+        {
+          "seed": 2002,
+          "team": 1,
+          "scores": [
+            46.4111,
+            0.0,
+            28.3761,
+            60.4336
+          ],
+          "score": 0.0,
+          "opponent_mean": 45.0736,
+          "rank": 4,
+          "outright_win": false
+        },
+        {
+          "seed": 2003,
+          "team": 2,
+          "scores": [
+            45.336,
+            21.5614,
+            0.0,
+            62.5402
+          ],
+          "score": 0.0,
+          "opponent_mean": 43.14586666666667,
+          "rank": 4,
+          "outright_win": false
+        },
+        {
+          "seed": 2004,
+          "team": 3,
+          "scores": [
+            15.8979,
+            35.4526,
+            49.1475,
+            0.6461
+          ],
+          "score": 0.6461,
+          "opponent_mean": 33.49933333333333,
+          "rank": 4,
+          "outright_win": false
+        }
+      ],
+      "mean_score": 0.358525,
+      "outright_wins": 0
+    },
+    "trained": {
+      "seconds": 108.82060141698457,
+      "games": [
+        {
+          "seed": 2001,
+          "team": 0,
+          "scores": [
+            0.0,
+            49.73,
+            41.6702,
+            45.4021
+          ],
+          "score": 0.0,
+          "opponent_mean": 45.600766666666665,
+          "rank": 4,
+          "outright_win": false
+        },
+        {
+          "seed": 2002,
+          "team": 1,
+          "scores": [
+            40.6915,
+            0.0,
+            31.8307,
+            60.8036
+          ],
+          "score": 0.0,
+          "opponent_mean": 44.44193333333333,
+          "rank": 4,
+          "outright_win": false
+        },
+        {
+          "seed": 2003,
+          "team": 2,
+          "scores": [
+            59.1083,
+            25.9087,
+            0.0,
+            56.3254
+          ],
+          "score": 0.0,
+          "opponent_mean": 47.11413333333333,
+          "rank": 4,
+          "outright_win": false
+        },
+        {
+          "seed": 2004,
+          "team": 3,
+          "scores": [
+            17.267,
+            37.3592,
+            53.2415,
+            0.0
+          ],
+          "score": 0.0,
+          "opponent_mean": 35.9559,
+          "rank": 4,
+          "outright_win": false
+        }
+      ],
+      "mean_score": 0.0,
+      "outright_wins": 0
+    }
+  }
+}

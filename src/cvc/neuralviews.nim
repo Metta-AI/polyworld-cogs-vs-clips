@@ -58,7 +58,8 @@ proc relative(owner, team: Owner): int =
   else: 2
 
 proc neuralGrid*(view: var NeuralView, world: World, slot, requested: int,
-    output: var NeuralGrid) =
+    output: var NeuralGrid,
+    assignments: ptr array[CogCount, int32] = nil) =
   ## Builds the reconstructed 134-feature candidate from visible sim state.
   assert slot in 0 ..< CogCount and requested in 0 .. 10
   view.prepare(world)
@@ -138,7 +139,12 @@ proc neuralGrid*(view: var NeuralView, world: World, slot, requested: int,
           inventory(cell, ResourceFeatures[ord(element)], other.cargo[element])
         if other.role != Ungeared:
           inventory(cell, InventoryRoles[ord(other.role) - 1], 1)
-        inventory(cell, 36 + neuralRole(occupant, requested) * 2, 1)
+        let otherRole =
+          if assignments == nil:
+            neuralRole(occupant, requested)
+          else:
+            int(assignments[][occupant])
+        inventory(cell, 36 + otherRole * 2, 1)
       elif world.tiles[tile].wall:
         emit(cell, 6, 20)
       elif world.tiles[tile].station >= 0:

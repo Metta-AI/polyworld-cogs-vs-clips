@@ -56,6 +56,57 @@ runtimes. Programs can use `self(0)` to specialize by seat. See
 [the policy interface](docs/policies.md) for observation and action functions.
 The bundled baseline is intentionally simple and uses remembered local vision.
 
+## PufferLib training
+
+Training runs the compiled Nim simulation directly and uses PyTorch for neural
+inference and PufferLib PPO. It does not run the learned policy through BASIC.
+The simulation rules and official scores stay unchanged.
+
+Use a Python environment with the dependencies in `training/requirements.txt`.
+PufferLib's native advantage extension must be built against the installed
+Torch version. See [training setup](docs/training.md) for the tested versions.
+After installing the Nim dependencies above, run from this repository:
+
+```sh
+sh tools/build_training.sh
+python tools/train_safa.py --seconds 600 --output out/safa-train
+```
+
+This trains Safa's CNN/LSTM from scratch with the active FourScore curriculum:
+per-team generalist and idle roles, individual reward shaping, random idle
+actions, and idle-agent loss masking. CPU is the default. `--device cuda`
+selects GPU learning on a compatible machine. GPU execution has not been
+validated here.
+
+Use a new output directory for each run. It contains initial weights, final
+model and optimizer checkpoints, metrics, source snapshots, and `summary.json`.
+Training stops at the first of `--seconds` or `--steps`, after finishing the
+current update. `--checkpoint PATH` loads weights with a fresh optimizer, not
+an exact training resume.
+
+Evaluate the checkpoint path recorded in `summary.json` against `base.bas`:
+
+```sh
+python tools/evaluate_safa_training.py PATH_TO_MODEL.pt \
+  --output out/safa-train/evaluation.json
+```
+
+Evaluation plays four full games with eight neural cogs against 24 baseline
+cogs, rotating the neural team through the corners. Evaluate `initial.pt` with
+the same settings to compare before and after training.
+
+A smaller MLP baseline is also available:
+
+```sh
+python tools/train_puffer.py --seconds 600 --evaluate --output out/puffer-train
+```
+
+The 10-minute CPU curriculum test completed 663,552 agent steps and 648 PPO
+updates. It scored zero in all four held-out games, so it did not demonstrate
+useful learned play. See [curriculum details and results](docs/safa-curriculum.md)
+and [Safa's training notes](docs/safa-training-research.md) for the source recipe
+and the port's observation differences.
+
 ## Validation
 
 ```sh
