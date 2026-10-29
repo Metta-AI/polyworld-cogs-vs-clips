@@ -11,8 +11,9 @@ Other BASIC bots can continue using direct queries without building this view.
 manifest and unchanged exported weights from `out/safa/model.bin`. The package
 is `out/safa/safa-tensors.zip`. Its metadata preserves the original checkpoint
 fingerprint. The 134-feature contract remains reconstructed; the exact original
-submission metadata was not available. Reward inputs and protocol hints have
-the compatibility limitations described in `safa.md`.
+submission metadata was not available. Reward inputs are zero and station protocol hints are reconstructed from the
+frozen rules. Other cogs use assumed role assignments. The dense view does not
+reproduce the original 500-token truncation.
 
 The network's recurrent float32 output is checked against PyTorch fixtures in
 `tests/test_safa_tensors.nim`. Final sampling converts exponentiated logits to
@@ -27,7 +28,7 @@ memory. The policy prints initialization and its completed inference count to
 its private hosted log.
 
 ```sh
-python3 tools/package_safa_tensors.py
+python3 tools/package_safa_tensors.py --checkpoint /path/to/model_036992.pt
 nim r -d:release -d:headless -d:tensorBlas tests/test_safa_tensors.nim
 nim r -d:release -d:headless -d:tensorBlas src/cvc.nim \
   --bots:out/safa/safa-tensors.zip:8 --bots:players/base.bas:24 \
