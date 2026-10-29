@@ -149,6 +149,12 @@ proc observe*(observer: var Observer, world: World,
   for slot in 0 ..< CogCount:
     discard encode(world, slot, observer, output[slot], false)
 
+proc observeOne*(observer: Observer, world: World, slot: int,
+    output: var Observation) =
+  ## Encodes one seat after the caller prepares the occupancy index.
+  assert slot in 0 ..< CogCount
+  discard encode(world, slot, observer, output, false)
+
 proc observeReference*(world: World,
     output: var ObservationBatch) {.measure.} =
   ## Builds the same tokens using deliberately direct object lookup.

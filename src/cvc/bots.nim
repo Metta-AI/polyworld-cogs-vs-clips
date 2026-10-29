@@ -1,7 +1,7 @@
 import
   bassy,
-  polyworld/policyhosts,
-  sims, profiles, routes, yields
+  polyworld/[policyhosts, policies, rngs, tensors],
+  sims, profiles, routes, yields, observations, neuralviews
 
 when defined(coworld):
   import polyworld/coworld
@@ -9,6 +9,9 @@ when defined(coworld):
 const BaselineSource* = staticRead("../../players/base.bas")
 
 type
+  ObservationHost = ref object
+    observer: Observer
+    prepared: bool
   Memory = object
     seen: array[TileCount, bool]
     tiles: array[TileCount, Tile]
@@ -24,8 +27,18 @@ type
     when not defined(headless):
       target: int32 = -1
     error: string
+    observationHost: ObservationHost
+    observationReady: bool
+    fieldsReady: bool
+    observation: Observation
+    fields: array[256, array[Feature, int32]]
+    policy: Policy
+    neuralView: NeuralView
+    neuralRandom: Rng
+    neuralStarted: bool
   Bots* = ref object
     brains: array[CogCount, Brain]
+    observationHost: ObservationHost
 
 when defined(benchRoutes):
   var routeProbe: proc(brain: Brain, target: int32)
@@ -193,9 +206,48 @@ proc baseline(brain: Brain): Action {.measure.} =
     world, brain.slot, result, brain.navigation.crowded
   )
 
+proc prepareObservation(brain: Brain) =
+  ## Builds packed tokens only when a policy explicitly requests them.
+  if brain.observationReady:
+    return
+  if not brain.observationHost.prepared:
+    brain.observationHost.observer.prepare(brain.world[])
+    brain.observationHost.prepared = true
+  brain.observationHost.observer.observeOne(
+    brain.world[], brain.slot, brain.observation
+  )
+  brain.observationReady = true
+
 proc host(brain: Brain): Host =
   ## Registers the fixed BASIC observation and action boundary.
   result = initPolicyHost(brain.slot)
+  proc obsProc(args: openArray[int32]): int32 =
+    ## Reads decoded fields from the exact packed training observation.
+    if args[0] notin 0 .. 254 or args[1] notin ord(low(Feature)) ..
+      ord(high(Feature)):
+        return 0
+    if not brain.fieldsReady:
+      brain.prepareObservation()
+      reset(brain.fields)
+      for token in brain.observation:
+        if token[0] == EmptyByte:
+          break
+        let
+          field = Feature(token[1] div 4)
+          power = int(token[1] mod 4)
+        brain.fields[token[0]][field] =
+          brain.fields[token[0]][field] or
+          (int32(token[2]) shl (power * 8))
+      brain.fieldsReady = true
+    brain.fields[args[0]][Feature(args[1])]
+  proc observeProc(runtime: Runtime, args: openArray[Value]): Value =
+    ## Returns an independent flat array of location, feature, value triples.
+    brain.prepareObservation()
+    var values: array[ObservationTokens * 3, Value]
+    for i, token in brain.observation:
+      for column in 0 ..< 3:
+        values[i * 3 + column] = toValue(int32(token[column]))
+    runtime.putArray(values)
   proc selfProc(args: openArray[int32]): int32 =
     ## Reads one scalar field of the acting Cog.
     let cog = brain.world.cogs[brain.slot]
@@ -209,6 +261,7 @@ proc host(brain: Brain): Host =
     of 6: cog.energy
     of 7: cog.hearts
     of 8: int32(cog.team)
+    of 9: int32(cog.feedback)
     else: 0
   proc bankProc(args: openArray[int32]): int32 =
     ## Reads shared bank inventory by element index.
@@ -276,6 +329,26 @@ proc host(brain: Brain): Host =
   proc autoProc(args: openArray[int32]): int32 =
     ## Returns the bundled observation-limited baseline action.
     int32(brain.baseline())
+  proc observationTensor(runtime: Runtime, args: openArray[Value]): Value =
+    ## Writes the visible 134-feature view into a policy-owned tensor.
+    let role = args[0].asInt
+    if role notin 0 .. 10:
+      raise newException(BasicError, "observationTensor role must be 0..10")
+    var grid: NeuralGrid
+    brain.neuralView.neuralGrid(brain.world[], brain.slot, int(role), grid)
+    runtime.writeFloats(args[1], grid)
+    args[1]
+  proc randomProc(args: openArray[int32]): int32 =
+    ## Samples a bounded policy RNG independent of the lockstep simulation.
+    if args[0] < 1:
+      raise newException(BasicError, "randomInt bound must be positive")
+    if not brain.neuralStarted:
+      brain.neuralRandom = initRng(brain.world.seed, uint64(brain.slot + 1))
+      brain.neuralStarted = true
+    int32(brain.neuralRandom.next() mod uint64(args[0]))
+  result.addTensorFunctions(brain.policy)
+  discard result.addFunction("observationTensor", 2, observationTensor, 1000)
+  discard result.addFunction("randomInt", 1, randomProc, 1)
   discard result.addFunction("self", 1, selfProc, 1)
   discard result.addFunction("bank", 1, bankProc, 1)
   discard result.addFunction("cargo", 1, cargoProc, 1)
@@ -285,29 +358,50 @@ proc host(brain: Brain): Host =
   discard result.addFunction("cog", 2, cogProc, 1)
   discard result.addFunction("act", 1, actProc, 1)
   discard result.addFunction("baseline", 0, autoProc, TileCount * 4)
+  discard result.addFunction("obs", 2, obsProc, 1)
+  discard result.addFunction("observe", 0, observeProc, ObservationTokens * 3)
 
 proc newBots*(sources: array[CogCount, string]): Bots =
   ## Compiles each slot policy and creates independent runtimes.
   new result
+  result.observationHost = ObservationHost()
   var limits = defaultLimits()
-  limits.maxInstructions = 100_000
-  limits.maxWorkUnits = 100_000
+  limits.maxInstructions = 250_000
+  limits.maxWorkUnits = 250_000
+  limits.maxNativeMemoryBytes = 64 * 1024 * 1024
+  limits.maxMemoryBytes = 64 * 1024 * 1024
   limits.maxPrintBytes = 1024
   limits.maxPrintEvents = 16
   let schema = Brain(slot: 0).host()
   try:
     for i in 0 ..< CogCount:
+      var policy: Policy
+      for j in 0 ..< i:
+        if sources[j] == sources[i]:
+          policy = result.brains[j].policy
+          break
+      if policy == nil:
+        try:
+          policy = loadPolicy(sources[i])
+        except PolicyError:
+          when defined(coworld):
+            rejectPlayer(i, getCurrentExceptionMsg())
+          else:
+            raise
       let
         program =
           when defined(coworld):
-            compilePlayer(sources[i], schema, limits, i)
+            compilePlayer(policy.source, schema, limits, i)
           else:
-            compile(sources[i], schema, limits)
-        brain = Brain(slot: i, navigation: newRoutes())
+            compile(policy.source, schema, limits)
+        brain = Brain(slot: i, navigation: newRoutes(),
+          observationHost: result.observationHost, policy: policy)
       brain.runtime = initRuntime(program, brain.host(), limits)
       result.brains[i] = brain
   except BasicError as error:
     fail("policy compilation failed: " & error.msg)
+  except PolicyError:
+    fail("policy package failed: " & getCurrentExceptionMsg())
 
 proc newBots*(source = BaselineSource): Bots =
   ## Fills all fixed Cog slots with one policy source.
@@ -318,8 +412,11 @@ proc newBots*(source = BaselineSource): Bots =
 
 proc decide*(bots: Bots, world: var World): Actions {.measure.} =
   ## Runs all policies against the same pre-tick state.
+  bots.observationHost.prepared = false
   for i, brain in bots.brains:
     brain.world = addr world
+    brain.observationReady = false
+    brain.fieldsReady = false
     brain.remember()
     brain.action = Rest
     when not defined(headless):
@@ -337,6 +434,7 @@ proc decide*(bots: Bots, world: var World): Actions {.measure.} =
           playerError(i, error.msg)
         else:
           echo "Cog ", i, " policy stopped: ", error.msg
+    brain.neuralView.last[i] = brain.action
     result[i] = brain.action
     brain.world = nil
 
