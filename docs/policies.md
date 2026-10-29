@@ -51,3 +51,16 @@ route, or when it proposes a movement destination from either of its previous
 two decisions. Each seat uses a deterministic coin keyed by match seed, tick,
 and seat, without consuming simulation randomness. Station interactions and
 explicit custom-policy `act` calls are unchanged.
+
+## Tensor policies
+
+Upload raw BASIC or a ZIP with exactly one `.bas` entry and resource files.
+`tensors.json` names float32, fixed or integer tensor slices. BASIC owns the
+network architecture and recurrent state. Generic tensor operations include
+dense layers, convolution, group normalization, activations and slicing.
+`observationTensor(role, output)` writes the visible reconstructed 134-feature
+CHW view into an existing `[134,13,13]` float32 tensor. Roles 0..9 are explicit
+source reward roles; 3 is the generalist and 10 selects a fixed mixed lineup.
+`randomInt(bound)` draws from a policy-local RNG. Existing direct queries do
+not build the dense observation unless requested. Tensor math is bounded by
+the same per-tick work and memory limits as other policy operations.
